@@ -1,0 +1,24 @@
+Remove metadata attribute fooattr
+
+This attribute is no longer needed because foo now infers this
+information on it's own.
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch master
+# Changes to be committed:
+#	modified:   node/node0001.yml
+#
+# ------------------------ >8 ------------------------
+# Do not modify or remove the line above.
+# Everything below it will be ignored.
+diff --git a/node/node0001.yml b/node/node0001.yml
+index a1f23e2..06bda87 100644
+--- a/node/node0001.yml
++++ b/node/node0001.yml
+@@ -19,5 +19,3 @@ networks:
+     mac: 00:02:c9:8c:df:3a
+   prd_replication:
+     mac: 00:02:c9:8c:df:3b
+-metadata:
+-  fooattr: bar

@@ -1,0 +1,5 @@
+---
+name: phy_provision
+mtu: 1500
+domain: provision.local
+subnets: []

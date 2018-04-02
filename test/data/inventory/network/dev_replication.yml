@@ -1,0 +1,5 @@
+---
+name: dev_replication
+mtu: 9000
+domain: replication.dev
+subnets: []

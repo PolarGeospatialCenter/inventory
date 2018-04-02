@@ -1,0 +1,19 @@
+---
+name: foosys
+shortname: foosys
+environments:
+  production:
+    ipxeurl: "http://localhost:8091/master"
+    networks:
+      provision: phy_provision
+      storage: prd_storage
+      replication: prd_replication
+  dev:
+    ipxeurl: "http://localhost:8091/dev"
+    networks:
+      provision: phy_provision
+      storage: dev_storage
+      replication: dev_replication
+roles:
+  - master
+  - worker

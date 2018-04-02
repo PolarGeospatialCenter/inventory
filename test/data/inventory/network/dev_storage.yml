@@ -1,0 +1,5 @@
+---
+name: dev_storage
+mtu: 9000
+domain: storage.dev
+subnets: []

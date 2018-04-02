@@ -1,0 +1,21 @@
+---
+inventoryid: node0003
+chassislocation:
+  building: "fakest"
+  room: "201"
+  rack: "gh21"
+  index: "02"
+system: foosys
+environment: dev
+role: worker
+tags:
+  - foo
+  - bar
+  - baz
+networks:
+  phy_provision:
+    mac: 00:25:90:7e:a2:f5
+  dev_storage:
+    mac: 00:02:c9:8c:df:3e
+  dev_replication:
+    mac: 00:02:c9:8c:df:3f

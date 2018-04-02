@@ -1,0 +1,5 @@
+---
+name: prd_storage
+mtu: 9000
+domain: storage.local
+subnets: []
