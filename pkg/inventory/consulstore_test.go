@@ -2,52 +2,24 @@ package inventory
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
-	"os/exec"
 	"testing"
-	"time"
 
+	consultest "github.com/PolarGeospatialCenter/dockertest/pkg/consul"
 	consul "github.com/hashicorp/consul/api"
 )
 
-var randomSrc = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-func RunConsul(ctx context.Context) (*consul.Client, error) {
-	port := randomSrc.Int() % 10000
-	go func() {
-		port_config := fmt.Sprintf("ports { http = %d https = -1 dns = -1 serf_lan = %d serf_wan = %d server = %d}", 8500+port, 8301+port, 8302+port, 8300+port)
-		cmd := exec.CommandContext(ctx, "consul", "agent", "-dev", "-hcl", port_config)
-		cmd.Run()
-	}()
-	config := consul.DefaultConfig()
-	config.Address = fmt.Sprintf("localhost:%d", 8500+port)
-	client, err := consul.NewClient(config)
-	return client, err
-}
-
-func TestConsul(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	client, err := RunConsul(ctx)
-	if err != nil {
-		t.Fatalf("Unable to start consul: %s", err)
-	}
-
-	time.Sleep(500 * time.Millisecond)
-	_, err = client.Status().Leader()
-	if err != nil {
-		t.Fatalf("Unable to get leader from consul: %s", err)
-	}
-}
-
 func TestCopyUpdatedNodes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	client, err := RunConsul(ctx)
+	ctx := context.Background()
+	instance, err := consultest.Run(ctx)
 	if err != nil {
-		t.Fatalf("Unable to start consul: %s", err)
+		t.Fatalf("unable to start consul: %v", err)
 	}
+	defer instance.Stop(ctx)
+	client, err := consul.NewClient(instance.Config())
+	if err != nil {
+		t.Fatalf("Unable to create consul client: %v", err)
+	}
+
 	cStore, err := NewConsulStore(client, "testbase")
 	if err != nil {
 		t.Fatalf("Unable to create consul data store: %s", err)

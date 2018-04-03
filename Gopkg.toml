@@ -23,10 +23,6 @@
 ignored = ["github.com/hashicorp/consul/api*", "github.com/aws/aws-sdk-go*"]
 
 [[constraint]]
-  name = "docker.io/go-docker"
-  version = "1.0.0"
-
-[[constraint]]
   branch = "master"
   name = "github.com/azenk/iputils"
 
