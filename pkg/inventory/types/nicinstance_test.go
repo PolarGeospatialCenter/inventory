@@ -9,7 +9,7 @@ func getTestNICInstance() (*NICInstance, string) {
 	nicInfo, _, _ := getTestNICInfo()
 	net, _, _ := getTestNetwork()
 	nicInstance := &NICInstance{NIC: *nicInfo, Network: *net}
-	jsonString := `{"Network":{"Name":"test_phys","MTU":9000,"Subnets":[],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T15:33:09-06:00"},"NIC":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}}`
+	jsonString := `{"Network":{"Name":"test_phys","MTU":9000,"Subnets":[],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"},"NIC":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}}`
 	return nicInstance, jsonString
 }
 

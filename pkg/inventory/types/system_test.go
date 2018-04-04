@@ -13,12 +13,12 @@ func getTestSystem() (*System, string, string) {
 	sys.Roles = []string{"worker"}
 	sys.Environments = make(map[string]*Environment)
 	sys.Environments["production"] = &Environment{IPXEUrl: "http://localhost:8080/", Networks: map[string]string{"logical": "test_phys"}, Metadata: map[string]interface{}{"key": "value"}}
-	sys.LastUpdated = time.Unix(123456789, 0)
+	sys.LastUpdated = time.Unix(123456789, 0).UTC()
 	sys.Metadata = make(map[string]interface{})
 	sys.Metadata["foo"] = "test"
 	sys.Metadata["bar"] = 34.1
 
-	jsonString := `{"Name":"Test System","ShortName":"test","Environments":{"production":{"IPXEUrl":"http://localhost:8080/","Networks":{"logical":"test_phys"},"Metadata":{"key":"value"}}},"Roles":["worker"],"Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T15:33:09-06:00"}`
+	jsonString := `{"Name":"Test System","ShortName":"test","Environments":{"production":{"IPXEUrl":"http://localhost:8080/","Networks":{"logical":"test_phys"},"Metadata":{"key":"value"}}},"Roles":["worker"],"Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
 	yamlString := `name: Test System
 shortname: test
 roles:
@@ -30,7 +30,7 @@ environments:
       logical: test_phys
     metadata:
       key: value
-lastupdated: 1973-11-29T15:33:09-06:00
+lastupdated: 1973-11-29T21:33:09Z
 metadata:
   foo: test
   bar: 34.1

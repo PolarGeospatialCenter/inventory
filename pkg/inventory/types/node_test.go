@@ -18,12 +18,12 @@ func getTestNode() (*Node, string, string) {
 	node.Role = "worker"
 	node.Environment = "production"
 	node.System = "test"
-	node.LastUpdated = time.Unix(123456789, 0)
+	node.LastUpdated = time.Unix(123456789, 0).UTC()
 	node.Metadata = make(map[string]interface{})
 	node.Metadata["foo"] = "test"
 	node.Metadata["bar"] = 34.1
 
-	jsonString := `{"InventoryID":"sample0001","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T15:33:09-06:00"}`
+	jsonString := `{"InventoryID":"sample0001","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
 	yamlString := `inventoryid: sample0001
 chassislocation:
   building: 123 Fake St
@@ -42,7 +42,7 @@ networks:
 role: worker
 environment: production
 system: test
-lastupdated: 1973-11-29T15:33:09-06:00
+lastupdated: 1973-11-29T21:33:09Z
 metadata:
   foo: test
   bar: 34.1

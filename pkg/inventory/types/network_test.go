@@ -12,17 +12,17 @@ func getTestNetwork() (*Network, string, string) {
 	net.MTU = 9000
 	net.Name = "test_phys"
 	net.Subnets = make([]*Subnet, 0)
-	net.LastUpdated = time.Unix(123456789, 0)
+	net.LastUpdated = time.Unix(123456789, 0).UTC()
 	net.Metadata = make(map[string]interface{})
 	net.Metadata["foo"] = "test"
 	net.Metadata["bar"] = 34.1
 
-	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T15:33:09-06:00"}`
+	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
 	yamlString := `name: test_phys
 mtu: 9000
 domain: test.local
 subnets: []
-lastupdated: 1973-11-29T15:33:09-06:00
+lastupdated: 1973-11-29T21:33:09Z
 metadata:
   foo: test
   bar: 34.1
