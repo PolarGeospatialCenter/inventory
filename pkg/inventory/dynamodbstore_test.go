@@ -16,15 +16,18 @@ import (
 	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
 
-func loadGitStore() *GitStore {
+func loadGitStore() (*GitStore, error) {
 	path, _ := os.Getwd()
 	testdir := filepath.Join(path, "..", "..", "test", "data", "gitstore_2")
 	cloneOpts := &git.CloneOptions{
 		URL: fmt.Sprintf("file://%s", testdir),
 	}
-	repo, _ := git.Clone(memory.NewStorage(), nil, cloneOpts)
+	repo, err := git.Clone(memory.NewStorage(), nil, cloneOpts)
+	if err != nil {
+		return nil, err
+	}
 
-	return NewGitStore(repo, &git.FetchOptions{}, "master")
+	return NewGitStore(repo, &git.FetchOptions{}, "master"), nil
 }
 
 func TestDynamoDBCreateTable(t *testing.T) {
@@ -69,8 +72,18 @@ func TestDynamoDBUpdate(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 	db := dynamodb.New(session.New(dbInstance.Config()))
 
-	store := loadGitStore()
+	store, err := loadGitStore()
+	if err != nil {
+		t.Fatalf("Failed to load git store: %v", err)
+	}
 	store.Refresh()
+
+	gitNodes, _ := store.GetNodes()
+	numNodes := len(gitNodes)
+	if numNodes != 3 {
+		t.Errorf("Got %d nodes from test git store, expecting %d", numNodes, 3)
+	}
+
 	dbstore := NewDynamoDBStore(db, nil)
 
 	err = dbstore.InitializeTables()
@@ -165,8 +178,8 @@ func TestDynamoDBUpdate(t *testing.T) {
 		t.Errorf("Unable to scan metadata table: %v", err)
 	}
 
-	if len(out.Items) != 3 {
-		t.Errorf("Expected %d node entries, got %d", 3, len(out.Items))
+	if len(out.Items) != numNodes {
+		t.Errorf("Expected %d node entries, got %d", numNodes, len(out.Items))
 	}
 
 }
