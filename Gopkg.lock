@@ -10,8 +10,8 @@
 [[projects]]
   branch = "master"
   name = "github.com/PolarGeospatialCenter/dockertest"
-  packages = ["pkg/docker","pkg/dynamodb"]
-  revision = "46270c53b84bf03dd2a53e74e30a14ddba6587bc"
+  packages = ["pkg/consul","pkg/docker","pkg/dynamodb"]
+  revision = "398dfb5b2194221bfe47349ec296e78abda13b3e"
 
 [[projects]]
   branch = "master"
@@ -159,6 +159,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "60e60380bcce3ad3e58a1addc719430ea409c8dd5e0b7aae204ce48bb22feab2"
+  inputs-digest = "14026f5aed93bc3a78de0fe87a9bcef647e9cfc4f5e133a989b777df26400564"
   solver-name = "gps-cdcl"
   solver-version = 1
