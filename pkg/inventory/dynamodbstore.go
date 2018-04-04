@@ -6,10 +6,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 )
 
 type RawInventoryStore interface {
@@ -20,11 +20,10 @@ type RawInventoryStore interface {
 
 // DynamoDBStoreTableMap maps data types to the appropriate table within DynamoDB
 type DynamoDBStoreTableMap struct {
-	DynamoDBStoreMetadata string
-	Node                  string
-	Network               string
-	System                string
-	NodeMacIndex          string
+	Node         string
+	Network      string
+	System       string
+	NodeMacIndex string
 }
 
 func (m *DynamoDBStoreTableMap) LookupTable(t interface{}) string {
@@ -37,38 +36,22 @@ func (m *DynamoDBStoreTableMap) LookupTable(t interface{}) string {
 		return m.System
 	case *NodeMacIndexEntry:
 		return m.NodeMacIndex
-	case *DynamoDBStoreMetadataRecord:
-		return m.DynamoDBStoreMetadata
 	}
 	return ""
 }
 
 func (m *DynamoDBStoreTableMap) Tables() []string {
-	return []string{m.Node, m.Network, m.System, m.NodeMacIndex, m.DynamoDBStoreMetadata}
+	return []string{m.Node, m.Network, m.System, m.NodeMacIndex}
 }
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		DynamoDBStoreMetadata: "inventory_metadata",
 		Node:         "inventory_nodes",
 		Network:      "inventory_networks",
 		System:       "inventory_systems",
 		NodeMacIndex: "inventory_node_mac_lookup",
 	}
 )
-
-type DynamoDBStoreMetadataRecord struct {
-	DatabaseID  int
-	LastUpdated time.Time
-}
-
-func (i *DynamoDBStoreMetadataRecord) ID() string {
-	return fmt.Sprintf("%d", i.DatabaseID)
-}
-
-func (i *DynamoDBStoreMetadataRecord) Timestamp() int64 {
-	return i.LastUpdated.Unix()
-}
 
 type NodeMacIndexEntry struct {
 	Mac         net.HardwareAddr
@@ -99,7 +82,6 @@ func (e ErrDynamoDBRecordNotFound) Error() string {
 }
 
 type DynamoDBStore struct {
-	metadata *DynamoDBStoreMetadataRecord
 	tableMap DynamoDBTableLookup
 	db       *dynamodb.DynamoDB
 }
@@ -119,12 +101,6 @@ func NewDynamoDBStore(db *dynamodb.DynamoDB, tableMap DynamoDBTableLookup) (*Dyn
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	obj.metadata = &DynamoDBStoreMetadataRecord{}
-	err := obj.getNewest(obj.metadata.ID(), obj.metadata)
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		err = obj.Update(obj.metadata)
 	}
 	return obj, err
 }
@@ -192,9 +168,6 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	case *NodeMacIndexEntry:
 		e := obj.(*NodeMacIndexEntry)
 		putItem.Item, _ = dynamodbattribute.MarshalMap(e)
-	case *DynamoDBStoreMetadataRecord:
-		md := obj.(*DynamoDBStoreMetadataRecord)
-		putItem.Item, _ = dynamodbattribute.MarshalMap(md)
 	default:
 		return fmt.Errorf("No matching type for update")
 	}
@@ -206,12 +179,6 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
 	if err != nil {
-		return err
-	}
-
-	if invObj.Timestamp() > db.metadata.Timestamp() {
-		db.metadata.LastUpdated = time.Unix(invObj.Timestamp(), 0)
-		err = db.Update(db.metadata)
 		return err
 	}
 	return nil

@@ -115,18 +115,9 @@ func TestDynamoDBUpdate(t *testing.T) {
 		}
 	}
 
-	expectedTimestamp := int64(1522616442)
-
-	if dbstore.metadata.Timestamp() != expectedTimestamp {
-		t.Errorf("Last update time doesn't match expected value: %d", dbstore.metadata.Timestamp())
-	}
-
-	testStore, err := NewDynamoDBStore(db, nil)
+	testStore := NewDynamoDBStore(db, nil)
 	if err != nil {
 		t.Errorf("Unable to recreate dynamodb store: %v", err)
-	}
-	if testStore.metadata.Timestamp() != expectedTimestamp {
-		t.Errorf("Reloaded dynamodb store has incorrect timestamp: %d", testStore.metadata.Timestamp())
 	}
 
 	err = testStore.UpdateFromInventoryStore(store)
