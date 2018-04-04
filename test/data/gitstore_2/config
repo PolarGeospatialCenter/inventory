@@ -2,7 +2,8 @@
 	repositoryformatversion = 0
 	filemode = true
 	bare = true
+	logallrefupdates = true
 	ignorecase = true
 	precomposeunicode = true
-[remote "origin"]
-	url = file:///Users/azenk/inventory_2/.git
+[branch "master"]
+[branch "master"]

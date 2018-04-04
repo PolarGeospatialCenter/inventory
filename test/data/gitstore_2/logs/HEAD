@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 686ae09960b1e1f308097c61411e56892fb078e6 Andrew Zenk <azenk@umn.edu> 1522616379 -0500	clone: from file:///Users/azenk/go_work/src/github.umn.edu/pgc-devops/inventory-ingest/test_data/gitstore_2
+686ae09960b1e1f308097c61411e56892fb078e6 8e25993ab52886d165517c7b046aa96b519e140c Andrew Zenk <azenk@umn.edu> 1522616442 -0500	commit: Fix duplicate MAC address between node0002 and node0003
+8e25993ab52886d165517c7b046aa96b519e140c 44247f0c832516651819acafe9e602340e685a6f Andrew Zenk <azenk@umn.edu> 1522616752 -0500	commit (amend): Fix duplicate MAC address between node0002 and node0003
