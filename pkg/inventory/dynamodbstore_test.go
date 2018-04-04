@@ -24,7 +24,7 @@ func loadGitStore() (*GitStore, error) {
 	}
 	repo, err := git.Clone(memory.NewStorage(), nil, cloneOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to clone repo from %s: %v", cloneOpts.URL, err)
 	}
 
 	return NewGitStore(repo, &git.FetchOptions{}, "master"), nil
