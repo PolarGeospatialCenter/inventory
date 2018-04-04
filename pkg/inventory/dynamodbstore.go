@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
 	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
@@ -19,37 +20,32 @@ type RawInventoryStore interface {
 }
 
 // DynamoDBStoreTableMap maps data types to the appropriate table within DynamoDB
-type DynamoDBStoreTableMap struct {
-	Node         string
-	Network      string
-	System       string
-	NodeMacIndex string
-}
+type DynamoDBStoreTableMap map[reflect.Type]string
 
-func (m *DynamoDBStoreTableMap) LookupTable(t interface{}) string {
-	switch t.(type) {
-	case *types.Node:
-		return m.Node
-	case *types.Network:
-		return m.Network
-	case *types.System:
-		return m.System
-	case *NodeMacIndexEntry:
-		return m.NodeMacIndex
+func (m DynamoDBStoreTableMap) LookupTable(t interface{}) string {
+	table, ok := m[reflect.TypeOf(t)]
+	if !ok {
+		return ""
 	}
-	return ""
+	return table
 }
 
-func (m *DynamoDBStoreTableMap) Tables() []string {
-	return []string{m.Node, m.Network, m.System, m.NodeMacIndex}
+func (m DynamoDBStoreTableMap) Tables() []string {
+	tables := make([]string, len(m))
+	idx := 0
+	for _, tablename := range m {
+		tables[idx] = tablename
+		idx++
+	}
+	return tables
 }
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		Node:         "inventory_nodes",
-		Network:      "inventory_networks",
-		System:       "inventory_systems",
-		NodeMacIndex: "inventory_node_mac_lookup",
+		reflect.TypeOf(&types.Node{}):        "inventory_nodes",
+		reflect.TypeOf(&types.Network{}):     "inventory_networks",
+		reflect.TypeOf(&types.System{}):      "inventory_systems",
+		reflect.TypeOf(&NodeMacIndexEntry{}): "inventory_node_mac_lookup",
 	}
 )
 

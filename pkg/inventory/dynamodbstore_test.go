@@ -27,16 +27,6 @@ func loadGitStore() *GitStore {
 	return NewGitStore(repo, &git.FetchOptions{}, "master")
 }
 
-type EmptyTableMap struct{}
-
-func (m *EmptyTableMap) LookupTable(obj interface{}) string {
-	return "test_table_entry"
-}
-
-func (m *EmptyTableMap) Tables() []string {
-	return []string{"test_table_entry"}
-}
-
 func TestDynamoDBCreateTable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -47,7 +37,7 @@ func TestDynamoDBCreateTable(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 	db := dynamodb.New(session.New(dbInstance.Config()))
 
-	dbstore := NewDynamoDBStore(db, &EmptyTableMap{})
+	dbstore := NewDynamoDBStore(db, &DynamoDBStoreTableMap{})
 
 	err = dbstore.createTable("test_table")
 	if err != nil {
