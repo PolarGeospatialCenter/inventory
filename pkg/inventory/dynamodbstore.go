@@ -87,22 +87,26 @@ type DynamoDBStore struct {
 }
 
 // NewDynamoDBStore creates a DynamoDBStore
-func NewDynamoDBStore(db *dynamodb.DynamoDB, tableMap DynamoDBTableLookup) (*DynamoDBStore, error) {
+func NewDynamoDBStore(db *dynamodb.DynamoDB, tableMap DynamoDBTableLookup) *DynamoDBStore {
 	if tableMap == nil {
 		tableMap = defatultDynamoDBTables
 	}
 	obj := &DynamoDBStore{tableMap: tableMap, db: db}
-	for _, table := range tableMap.Tables() {
-		_, err := db.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
+	return obj
+}
+
+func (db *DynamoDBStore) InitializeTables() error {
+	for _, table := range db.tableMap.Tables() {
+		_, err := db.db.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
 		if err == nil {
 			continue
 		}
-		err = obj.createTable(table)
+		err = db.createTable(table)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return obj, err
+	return nil
 }
 
 func (db *DynamoDBStore) createTable(table string) error {

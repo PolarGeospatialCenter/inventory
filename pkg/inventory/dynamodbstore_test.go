@@ -27,6 +27,48 @@ func loadGitStore() *GitStore {
 	return NewGitStore(repo, &git.FetchOptions{}, "master")
 }
 
+type EmptyTableMap struct{}
+
+func (m *EmptyTableMap) LookupTable(obj interface{}) string {
+	return "test_table_entry"
+}
+
+func (m *EmptyTableMap) Tables() []string {
+	return []string{"test_table_entry"}
+}
+
+func TestDynamoDBCreateTable(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	dbstore := NewDynamoDBStore(db, &EmptyTableMap{})
+
+	err = dbstore.createTable("test_table")
+	if err != nil {
+		t.Errorf("unable to create table: %v", err)
+	}
+
+	out, err := db.ListTables(&dynamodb.ListTablesInput{})
+	if err != nil {
+		t.Errorf("unable to list tables %v", err)
+	}
+
+	// expecting 2 tables, metadata and test_table
+	if len(out.TableNames) != 1 {
+		t.Errorf("wrong number of tables")
+	}
+
+	if len(out.TableNames) != 1 || *out.TableNames[0] != "test_table" {
+		t.Errorf("wrong table found")
+	}
+}
+
 func TestDynamoDBUpdate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -39,9 +81,11 @@ func TestDynamoDBUpdate(t *testing.T) {
 
 	store := loadGitStore()
 	store.Refresh()
-	dbstore, err := NewDynamoDBStore(db, nil)
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
 	if err != nil {
-		t.Errorf("Error creating dynamo db store: %v", err)
+		t.Errorf("Error creating dynamo db store tables: %v", err)
 	}
 
 	err = dbstore.UpdateFromInventoryStore(store)
