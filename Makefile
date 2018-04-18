@@ -2,9 +2,11 @@
 
 test: deps
 	go test -cover ./pkg/...
+	go test -cover ./handlers/...
 
 deps:
-	dep ensure
-	go get github.com/hashicorp/consul/api
-	go get github.com/aws/aws-sdk-go/aws
-	go get github.com/aws/aws-sdk-go/service
+	dep ensure -vendor-only
+	go get -u github.com/hashicorp/consul/api
+	go get -u github.com/aws/aws-sdk-go/aws
+	go get -u github.com/aws/aws-sdk-go/service
+	go get -u gopkg.in/src-d/go-git.v4
