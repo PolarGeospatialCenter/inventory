@@ -6,7 +6,6 @@ env:
     # Make sure to provide a valid S3 bucket name (it must exist already).
     # The AWS CodeBuild IAM role must allow write access to it.
     PACKAGE: "github.com/PolarGeospatialCenter/inventory"
-    GOPATH: "/go"
 
 phases:
 
@@ -31,7 +30,7 @@ phases:
       - cd "/go/src/${PACKAGE}"
 
       # Fetch all dependencies
-      - make deps
+      - GOPATH=/go make deps
 
       # Make Bin Dir
       - mkdir bin
