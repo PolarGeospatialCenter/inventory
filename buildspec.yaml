@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Compiling the Go code...
+      - mkdir bin
+      - go build -o bin/health handlers/health
+  post_build:
+    commands:
+      - echo Build completed on `date`
+artifacts:
+  files:
+    - bin/health
