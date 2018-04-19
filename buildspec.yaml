@@ -6,6 +6,8 @@ phases:
       - echo Build started on `date`
       - echo Compiling the Go code...
       - mkdir bin
+      - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - make deps
       - go build -o bin/health ./handlers/health
   post_build:
     commands:
