@@ -6,6 +6,7 @@ env:
     # Make sure to provide a valid S3 bucket name (it must exist already).
     # The AWS CodeBuild IAM role must allow write access to it.
     PACKAGE: "github.com/PolarGeospatialCenter/inventory"
+    GOPATH: "/go"
 
 phases:
 
@@ -15,8 +16,8 @@ phases:
       # AWS Codebuild Go images use /go for the $GOPATH so let's copy our
       # application source code into that directory structure.
       - mkdir -p "/go/src/$(dirname ${PACKAGE})"
-      - cp "${CODEBUILD_SRC_DIR}" "/go/src/${PACKAGE}"
-      #- ln -s "${CODEBUILD_SRC_DIR}" "/go/src/${PACKAGE}"
+      #- cp "${CODEBUILD_SRC_DIR}" "/go/src/${PACKAGE}"
+      - ln -s "${CODEBUILD_SRC_DIR}" "/go/src/${PACKAGE}"
 
       # Print all environment variables (handy for AWS CodeBuild logs)
       - env
