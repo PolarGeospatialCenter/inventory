@@ -30,7 +30,8 @@ phases:
       - cd "/go/src/${PACKAGE}"
 
       # Fetch all dependencies
-      - GOPATH=/go make deps
+      - export GOPATH=/go
+      - make deps
 
       # Make Bin Dir
       - mkdir bin
