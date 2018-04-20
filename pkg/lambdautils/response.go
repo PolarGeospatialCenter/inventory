@@ -13,15 +13,12 @@ func NewJSONAPIGatewayProxyResponse(statusCode int, headers map[string]string, b
 		Headers:         headers,
 		IsBase64Encoded: false,
 	}
-	switch bodyObj.(type) {
-	case string:
-		response.Body = bodyObj.(string)
-	default:
-		bodyBytes, err := json.Marshal(bodyObj)
-		if err != nil {
-			return nil, err
-		}
-		response.Body = string(bodyBytes)
+
+	bodyBytes, err := json.Marshal(bodyObj)
+	if err != nil {
+		return nil, err
 	}
+	response.Body = string(bodyBytes)
+
 	return response, nil
 }
