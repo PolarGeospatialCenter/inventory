@@ -17,6 +17,7 @@ func TestNewJSONAPIGatewayProxyResponseString(t *testing.T) {
 
 	cases := []testCase{
 		testCase{http.StatusOK, map[string]string{}, "Hello World!", `"Hello World!"`},
+		testCase{http.StatusOK, map[string]string{}, []string{"Hello World!"}, `["Hello World!"]`},
 		testCase{http.StatusOK, map[string]string{}, struct {
 			Test string `json:"test"`
 		}{Test: "Hello World!"}, `{"test":"Hello World!"}`},
