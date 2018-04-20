@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
@@ -16,16 +16,7 @@ type Health struct {
 
 //Handler Documentation...
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-
-	body, _ := json.Marshal(&Health{Status: 1})
-
-	res := &events.APIGatewayProxyResponse{
-		StatusCode: http.StatusOK,
-		Body:       string(body),
-	}
-
-	return res, nil
-
+	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, &Health{Status: 1})
 }
 
 func main() {
