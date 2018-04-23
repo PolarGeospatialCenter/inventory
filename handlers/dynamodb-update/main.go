@@ -25,16 +25,18 @@ type config struct {
 }
 
 func loadConfig(ctx context.Context) (config, error) {
-	lctx := lambdacontext.FromContext(ctx)
-	prefix := arnToParameterPrefix(lctx.InvokedFunctionArn)
+	lctx, _ := lambdacontext.FromContext(ctx)
+	prefix, _ := arnToParameterPrefix(lctx.InvokedFunctionArn)
+	_ = prefix
 
 	m := ssm.New(session.New())
-	m.GetParameter()
+	_ = m
+	//m.GetParameter()
 	return config{deployKey: []byte("")}, nil
 }
 
 func arnToParameterPrefix(arn string) (string, error) {
-	return arn
+	return arn, nil
 }
 
 func parseEventRecord(record events.SNSEventRecord) (*github.PushEvent, error) {
