@@ -39,8 +39,9 @@ phases:
     commands:
 
       # Build our go application
-      - go build -o bin/health ./handlers/health
+      - make build
+      - aws cloudformation package --template-file template.yml --s3-bucket ${S3_BUCKET} --output-template-file packaged.yml
 
 artifacts:
   files:
-    - bin/health
+    - packaged.yaml
