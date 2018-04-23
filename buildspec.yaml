@@ -29,9 +29,6 @@ phases:
       # Make sure we're in the project directory within our GOPATH
       - cd "/go/src/${PACKAGE}"
 
-      # Fetch all dependencies
-      - GOPATH=/go make deps
-
       # Make Bin Dir
       - mkdir bin
 
@@ -39,7 +36,7 @@ phases:
     commands:
 
       # Build our go application
-      - make build
+      - GOPATH=/go make build
       - aws cloudformation package --template-file template.yml --s3-bucket ${S3_BUCKET} --output-template-file packaged.yml
 
 artifacts:
