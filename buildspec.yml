@@ -39,6 +39,10 @@ phases:
       - GOPATH=/go make build
       - aws cloudformation package --template-file template.yml --s3-bucket ${S3_BUCKET} --output-template-file packaged.yml
 
+cache:
+  paths:
+    - vendor/**/*
+
 artifacts:
   files:
     - packaged.yml
