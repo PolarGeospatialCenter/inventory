@@ -6,8 +6,8 @@ Resources:
   HealthCheck:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: bin/health
-      CodeUri: bin/health
+      Handler: health
+      CodeUri: bin/
       Runtime: go1.x
       Events:
         GetEvent:
@@ -98,8 +98,8 @@ Resources:
   NodeLookup:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: bin/node
-      CodeUri: bin/node
+      Handler: node
+      CodeUri: bin/
       Runtime: go1.x
       Policies: AmazonDynamoDBFullAccess
       Events:
