@@ -42,6 +42,9 @@ phases:
 cache:
   paths:
     - vendor/**/*
+    - /go/src/github.com/aws/**/*
+    - /go/src/github.com/hashicorp/**/*
+    - /go/src/gopkg.in/**/*
 
 artifacts:
   files:
