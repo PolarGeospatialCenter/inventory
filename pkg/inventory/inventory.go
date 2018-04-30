@@ -7,7 +7,10 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 )
 
-var ErrNodeNotFound = errors.New("Node not found")
+var (
+	ErrNodeNotFound   = errors.New("Node not found")
+	ErrObjectNotFound = errors.New("Object not found")
+)
 
 type InventoryObject interface {
 	ID() string

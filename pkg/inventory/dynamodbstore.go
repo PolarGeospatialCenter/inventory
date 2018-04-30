@@ -257,13 +257,18 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
 	err := db.getNewest(id, node)
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		err = ErrObjectNotFound
+	}
 	return node, err
 }
 
 func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error) {
 	e := &NodeMacIndexEntry{}
 	err := db.getNewest(mac.String(), e)
-	if err != nil {
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	} else if err != nil {
 		return nil, err
 	}
 

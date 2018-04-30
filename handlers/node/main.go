@@ -31,7 +31,9 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 		}
 
 		node, err = inv.GetNodeByMAC(mac)
-		if err != nil {
+		if err == inventory.ErrObjectNotFound {
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, err.Error())
+		} else if err != nil {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
 		}
 	}
@@ -39,7 +41,9 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	if nodeID, ok := request.QueryStringParameters["nodeid"]; ok {
 		var err error
 		node, err = inv.GetNodeByID(nodeID)
-		if err != nil {
+		if err == inventory.ErrObjectNotFound {
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, err.Error())
+		} else if err != nil {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
 		}
 	}
