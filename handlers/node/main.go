@@ -23,14 +23,14 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, "No node requested, please add query parameters")
 	}
 
-	node := &inventorytypes.InventoryNode{}
+	node := &inventorytypes.Node{}
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
 		}
 
-		node, err = inv.GetInventoryNodeByMAC(mac)
+		node, err = inv.GetNodeByMAC(mac)
 		if err != nil {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
 		}
@@ -38,7 +38,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 
 	if nodeID, ok := request.QueryStringParameters["nodeid"]; ok {
 		var err error
-		node, err = inv.GetInventoryNodeByID(nodeID)
+		node, err = inv.GetNodeByID(nodeID)
 		if err != nil {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
 		}
