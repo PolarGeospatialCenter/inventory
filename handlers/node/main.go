@@ -26,7 +26,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, err.Error())
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, err.Error())
 		}
 
 		node, err = inv.GetNodeByMAC(mac)
