@@ -10,18 +10,17 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // Handler handles requests for nodes
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	db := dynamodb.New(session.New())
-	inv := inventory.NewDynamoDBStore(db, nil)
-
 	if len(request.QueryStringParameters) < 1 {
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, "No node requested, please add query parameters")
 	}
+
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
 
 	node := &inventorytypes.Node{}
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
