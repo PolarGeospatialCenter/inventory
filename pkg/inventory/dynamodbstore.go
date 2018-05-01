@@ -278,7 +278,10 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
 	err := db.getNewest(id, network)
-	if err != nil {
+
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -291,6 +294,11 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
 	err := db.getNewest(id, system)
+
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	}
+
 	return system, err
 }
 
