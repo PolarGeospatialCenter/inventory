@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -15,7 +16,7 @@ import (
 
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	if len(request.QueryStringParameters) < 1 {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, "No node requested, please add query parameters")
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("No node requested, please add query parameters"))
 	}
 
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
@@ -26,7 +27,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, err.Error())
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, err)
 		}
 
 		node, nodeErr = inv.GetNodeByMAC(mac)
@@ -39,14 +40,14 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, node)
 		}
 	} else {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, "invalid request, please check your parameters and try again")
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("invalid request, please check your parameters and try again"))
 	}
 
 	if nodeErr == inventory.ErrObjectNotFound {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, nodeErr.Error())
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, nodeErr)
 	}
 
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, "internal server error")
+	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
 }
 
 // Handler handles requests for nodes
@@ -55,7 +56,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	case http.MethodGet:
 		return GetHandler(ctx, request)
 	default:
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, "not implemented")
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))
 	}
 }
 

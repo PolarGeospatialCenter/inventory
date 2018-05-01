@@ -56,14 +56,14 @@ func TestGetHandler(t *testing.T) {
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
 
 	cases := []testCase{
-		testCase{handlerCtx, map[string]string{"id": "foo"}, "Object not found", http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", Error: "Object not found"}, http.StatusNotFound},
 		testCase{handlerCtx, map[string]string{"id": "testnode"}, node, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"mac": "01:02:03:04:05:06"}, "Object not found", http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{"mac": "01:02:03:04:05:06"}, lambdautils.ErrorResponse{Status: "Not Found", Error: "Object not found"}, http.StatusNotFound},
 		testCase{handlerCtx, map[string]string{"mac": testMac.String()}, node, http.StatusOK},
 		testCase{handlerCtx, map[string]string{"mac": testMac.String(), "badparam": "baz"}, node, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"mac": "foo"}, "address foo: invalid MAC address", http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{"badparam": "foo"}, "invalid request, please check your parameters and try again", http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, "No node requested, please add query parameters", http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{"mac": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", Error: "address foo: invalid MAC address"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", Error: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, lambdautils.ErrorResponse{Status: "Bad Request", Error: "No node requested, please add query parameters"}, http.StatusBadRequest},
 	}
 
 	for _, c := range cases {
@@ -80,16 +80,20 @@ func TestGetHandler(t *testing.T) {
 		}
 
 		switch c.ExpectedBody.(type) {
-		case string:
-			body := ""
+		case lambdautils.ErrorResponse:
+			body := lambdautils.ErrorResponse{}
 			err = json.Unmarshal([]byte(response.Body), &body)
 			if err != nil {
-				t.Errorf("Unable to unmarshal string in response")
+				t.Errorf("Unable to unmarshal error in response: %v", err)
 			}
 
-			if body != c.ExpectedBody.(string) {
-				t.Errorf("body doesn't match: expected '%s', got '%s'", c.ExpectedBody.(string), body)
+			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
+				t.Errorf("body doesn't match expected:")
+				for _, l := range diff {
+					t.Errorf(l)
+				}
 			}
+
 		case *inventorytypes.Node:
 			body := &inventorytypes.Node{}
 			err = json.Unmarshal([]byte(response.Body), body)
@@ -103,6 +107,8 @@ func TestGetHandler(t *testing.T) {
 					t.Errorf(l)
 				}
 			}
+		default:
+			t.Errorf("You've specified a return type that isn't implemented for testing.")
 		}
 	}
 

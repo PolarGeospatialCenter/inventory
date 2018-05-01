@@ -1,6 +1,7 @@
 package lambdautils
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -18,6 +19,7 @@ func TestNewJSONAPIGatewayProxyResponseString(t *testing.T) {
 	cases := []testCase{
 		testCase{http.StatusOK, map[string]string{}, "Hello World!", `"Hello World!"`},
 		testCase{http.StatusOK, map[string]string{}, []string{"Hello World!"}, `["Hello World!"]`},
+		testCase{http.StatusInternalServerError, map[string]string{}, fmt.Errorf("Error string"), `{"status":"Internal Server Error","error":"Error string"}`},
 		testCase{http.StatusOK, map[string]string{}, struct {
 			Test string `json:"test"`
 		}{Test: "Hello World!"}, `{"test":"Hello World!"}`},
