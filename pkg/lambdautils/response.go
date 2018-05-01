@@ -8,8 +8,8 @@ import (
 )
 
 type ErrorResponse struct {
-	Status string `json:"status"`
-	Error  string `json:"error"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error"`
 }
 
 // NewJSONAPIGatewayProxyResponse builds a APIGatewayProxyResponse struct assuming the provided body can be marshaled into json as a map[string]interface{}
@@ -21,7 +21,7 @@ func NewJSONAPIGatewayProxyResponse(statusCode int, headers map[string]string, b
 	}
 
 	if err, ok := bodyObj.(error); ok {
-		bodyObj = ErrorResponse{Status: http.StatusText(statusCode), Error: err.Error()}
+		bodyObj = ErrorResponse{Status: http.StatusText(statusCode), ErrorMessage: err.Error()}
 	}
 
 	bodyBytes, err := json.Marshal(bodyObj)
