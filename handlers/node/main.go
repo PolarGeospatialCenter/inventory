@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
+// GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	if len(request.QueryStringParameters) < 1 {
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("No node requested, please add query parameters"))
@@ -23,7 +24,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	inv := inventory.NewDynamoDBStore(db, nil)
 
 	var nodeErr error
-	node := &inventorytypes.Node{}
+	var node *inventorytypes.Node
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {

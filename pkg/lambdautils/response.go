@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 )
 
+// ErrorResponse type is what we'll use to return error objects
 type ErrorResponse struct {
 	Status       string `json:"status"`
 	ErrorMessage string `json:"error"`
