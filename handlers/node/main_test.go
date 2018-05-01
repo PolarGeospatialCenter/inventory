@@ -17,7 +17,7 @@ import (
 	"github.com/go-test/deep"
 )
 
-func TestHandler(t *testing.T) {
+func TestGetHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dbInstance, err := dynamodbtest.Run(ctx)
@@ -47,25 +47,28 @@ func TestHandler(t *testing.T) {
 	}
 
 	type testCase struct {
+		context         context.Context
 		queryParameters map[string]string
 		ExpectedBody    interface{}
 		ExpectedStatus  int
 	}
 
-	cases := []testCase{
-		testCase{map[string]string{"nodeid": "foo"}, "Object not found", http.StatusNotFound},
-		testCase{map[string]string{"nodeid": "testnode"}, node, http.StatusOK},
-		testCase{map[string]string{"mac": "01:02:03:04:05:06"}, "Object not found", http.StatusNotFound},
-		testCase{map[string]string{"mac": testMac.String()}, node, http.StatusOK},
-		testCase{map[string]string{"mac": "foo"}, "address foo: invalid MAC address", http.StatusBadRequest},
-		testCase{map[string]string{}, "No node requested, please add query parameters", http.StatusBadRequest},
-	}
-
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
+
+	cases := []testCase{
+		testCase{handlerCtx, map[string]string{"id": "foo"}, "Object not found", http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{"id": "testnode"}, node, http.StatusOK},
+		testCase{handlerCtx, map[string]string{"mac": "01:02:03:04:05:06"}, "Object not found", http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{"mac": testMac.String()}, node, http.StatusOK},
+		testCase{handlerCtx, map[string]string{"mac": testMac.String(), "badparam": "baz"}, node, http.StatusOK},
+		testCase{handlerCtx, map[string]string{"mac": "foo"}, "address foo: invalid MAC address", http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{"badparam": "foo"}, "invalid request, please check your parameters and try again", http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, "No node requested, please add query parameters", http.StatusBadRequest},
+	}
 
 	for _, c := range cases {
 		t.Logf("Testing query: %v", c.queryParameters)
-		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters})
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet})
 		if err != nil {
 			t.Errorf("error occurred while testing handler: %v", err)
 			continue

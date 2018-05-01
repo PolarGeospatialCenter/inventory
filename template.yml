@@ -3,18 +3,6 @@ Transform: AWS::Serverless-2016-10-31
 Description: A hello world application.
 
 Resources:
-  HealthCheck:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: health
-      CodeUri: bin/
-      Runtime: go1.x
-      Events:
-        GetEvent:
-          Type: Api
-          Properties:
-            Path: /health
-            Method: get
   NodeTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
@@ -95,6 +83,18 @@ Resources:
       Tags:
         - Key: application
           Value: inventory
+  HealthCheck:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: health
+      CodeUri: bin/
+      Runtime: go1.x
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
   NodeLookup:
     Type: AWS::Serverless::Function
     Properties:
