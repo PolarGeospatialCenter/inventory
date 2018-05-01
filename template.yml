@@ -121,3 +121,16 @@ Resources:
           Properties:
             Path: /network
             Method: get
+  SystemLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: system
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /system
+            Method: get
