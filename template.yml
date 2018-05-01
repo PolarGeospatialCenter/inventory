@@ -134,3 +134,4 @@ Resources:
           Properties:
             Path: /system
             Method: get
+            Authorizer: aws_iam
