@@ -113,7 +113,7 @@ func (db *DynamoDBStore) createTable(table string) error {
 				AttributeType: aws.String("S"),
 			},
 			{
-				AttributeName: aws.String("last_update"),
+				AttributeName: aws.String("last_updated"),
 				AttributeType: aws.String("N"),
 			},
 		},
@@ -123,7 +123,7 @@ func (db *DynamoDBStore) createTable(table string) error {
 				KeyType:       aws.String("HASH"),
 			},
 			{
-				AttributeName: aws.String("last_update"),
+				AttributeName: aws.String("last_updated"),
 				KeyType:       aws.String("RANGE"),
 			},
 		},
@@ -147,6 +147,7 @@ func (db *DynamoDBStore) Refresh() error {
 }
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
+	log.Printf("Updating %s: %s", obj.ID(), obj.Timestamp())
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
@@ -174,7 +175,7 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 
 	invObj := obj.(InventoryObject)
 	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
-	putItem.Item["last_update"], _ = dynamodbattribute.Marshal(invObj.Timestamp())
+	putItem.Item["last_updated"], _ = dynamodbattribute.Marshal(invObj.Timestamp())
 
 	log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
