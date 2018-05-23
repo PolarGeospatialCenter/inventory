@@ -134,3 +134,16 @@ Resources:
           Properties:
             Path: /system
             Method: get
+  NodeConfigLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: nodeconfig
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /nodeconfig
+            Method: get
