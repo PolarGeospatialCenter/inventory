@@ -67,6 +67,16 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+          /nodeconfig/{nodeId}:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /nodeconfig:
             get:
               x-amazon-apigateway-integration:
@@ -231,7 +241,14 @@ Resources:
       Runtime: go1.x
       Policies: AmazonDynamoDBFullAccess
       Events:
-        GetEvent:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /nodeconfig/{nodeId}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        QueryNodesEvent:
           Type: Api
           Properties:
             Path: /nodeconfig
