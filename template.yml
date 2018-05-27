@@ -19,7 +19,46 @@ Resources:
           - sigv4: []
         paths:
           /health:
-            security: []
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheck.Arn}/invocations
+              responses: {}
+              security: []
+          /node:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+          /network:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+          /system:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+          /nodeconfig:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: GET
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
+              responses: {}
   NodeTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
