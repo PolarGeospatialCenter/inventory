@@ -27,6 +27,16 @@ Resources:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheck.Arn}/invocations
               responses: {}
               security: []
+          /node/{nodeId}:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /node:
             get:
               x-amazon-apigateway-integration:
@@ -169,7 +179,14 @@ Resources:
       Runtime: go1.x
       Policies: AmazonDynamoDBFullAccess
       Events:
-        GetEvent:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        QueryNodesEvent:
           Type: Api
           Properties:
             Path: /node

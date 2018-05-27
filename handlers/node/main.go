@@ -16,12 +16,26 @@ import (
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	if len(request.QueryStringParameters) < 1 {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("No node requested, please add query parameters"))
-	}
 
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
+
+	if nodeId, ok := request.PathParameters["nodeId"]; ok {
+		// looking up an individual node
+		node, err := inv.GetNodeByID(nodeId)
+		switch err {
+		case inventory.ErrObjectNotFound:
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, err)
+		case nil:
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, node)
+		default:
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+		}
+	}
+
+	if len(request.QueryStringParameters) == 0 {
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("Querying all nodes is not implemented.  Please provide a filter."))
+	}
 
 	var nodeErr error
 	var node *inventorytypes.Node
@@ -33,12 +47,12 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 
 		node, nodeErr = inv.GetNodeByMAC(mac)
 		if nodeErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, node)
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, []*inventorytypes.Node{node})
 		}
 	} else if nodeID, ok := request.QueryStringParameters["id"]; ok {
 		node, nodeErr = inv.GetNodeByID(nodeID)
 		if nodeErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, node)
+			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, []*inventorytypes.Node{node})
 		}
 	} else {
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("invalid request, please check your parameters and try again"))

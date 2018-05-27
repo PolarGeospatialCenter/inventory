@@ -48,6 +48,7 @@ func TestGetHandler(t *testing.T) {
 
 	type testCase struct {
 		context         context.Context
+		pathParameters  map[string]string
 		queryParameters map[string]string
 		ExpectedBody    interface{}
 		ExpectedStatus  int
@@ -56,19 +57,20 @@ func TestGetHandler(t *testing.T) {
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
 
 	cases := []testCase{
-		testCase{handlerCtx, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
-		testCase{handlerCtx, map[string]string{"id": "testnode"}, node, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"mac": "01:02:03:04:05:06"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
-		testCase{handlerCtx, map[string]string{"mac": testMac.String()}, node, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"mac": testMac.String(), "badparam": "baz"}, node, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"mac": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "address foo: invalid MAC address"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "No node requested, please add query parameters"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"id": "testnode"}, []*inventorytypes.Node{node}, http.StatusOK},
+		testCase{handlerCtx, map[string]string{"nodeId": "testnode"}, map[string]string{}, node, http.StatusOK},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": "01:02:03:04:05:06"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": testMac.String()}, []*inventorytypes.Node{node}, http.StatusOK},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": testMac.String(), "badparam": "baz"}, []*inventorytypes.Node{node}, http.StatusOK},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "address foo: invalid MAC address"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, map[string]string{}, lambdautils.ErrorResponse{Status: "Not Implemented", ErrorMessage: "Querying all nodes is not implemented.  Please provide a filter."}, http.StatusNotImplemented},
 	}
 
 	for _, c := range cases {
 		t.Logf("Testing query: %v", c.queryParameters)
-		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet})
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet, PathParameters: c.pathParameters})
 		if err != nil {
 			t.Errorf("error occurred while testing handler: %v", err)
 			continue
@@ -97,6 +99,20 @@ func TestGetHandler(t *testing.T) {
 		case *inventorytypes.Node:
 			body := &inventorytypes.Node{}
 			err = json.Unmarshal([]byte(response.Body), body)
+			if err != nil {
+				t.Errorf("Unable to unmarshal node in response")
+			}
+
+			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
+				t.Errorf("body doesn't match expected:")
+				for _, l := range diff {
+					t.Errorf(l)
+				}
+			}
+
+		case []*inventorytypes.Node:
+			body := []*inventorytypes.Node{}
+			err = json.Unmarshal([]byte(response.Body), &body)
 			if err != nil {
 				t.Errorf("Unable to unmarshal node in response")
 			}
