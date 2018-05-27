@@ -35,6 +35,8 @@ Resources:
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
               responses: {}
+              security:
+                - sigv4: []
           /network:
             get:
               x-amazon-apigateway-integration:
@@ -43,6 +45,8 @@ Resources:
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
               responses: {}
+              security:
+                - sigv4: []
           /system:
             get:
               x-amazon-apigateway-integration:
@@ -51,6 +55,8 @@ Resources:
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
               responses: {}
+              security:
+                - sigv4: []
           /nodeconfig:
             get:
               x-amazon-apigateway-integration:
@@ -59,6 +65,8 @@ Resources:
                 uri:
                   Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
               responses: {}
+              security:
+                - sigv4: []
   NodeTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
