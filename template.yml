@@ -37,16 +37,6 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
-          /node:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
-              responses: {}
-              security:
-                - sigv4: []
           /network:
             get:
               x-amazon-apigateway-integration:
@@ -68,16 +58,6 @@ Resources:
               security:
                 - sigv4: []
           /nodeconfig/{nodeId}:
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
-              responses: {}
-              security:
-                - sigv4: []
-          /nodeconfig:
             get:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -196,13 +176,6 @@ Resources:
             Method: get
             RestApiId:
               Ref: SystemDataApi
-        QueryNodesEvent:
-          Type: Api
-          Properties:
-            Path: /node
-            Method: get
-            RestApiId:
-              Ref: SystemDataApi
   NetworkLookup:
     Type: AWS::Serverless::Function
     Properties:
@@ -245,13 +218,6 @@ Resources:
           Type: Api
           Properties:
             Path: /nodeconfig/{nodeId}
-            Method: get
-            RestApiId:
-              Ref: SystemDataApi
-        QueryNodesEvent:
-          Type: Api
-          Properties:
-            Path: /nodeconfig
             Method: get
             RestApiId:
               Ref: SystemDataApi
