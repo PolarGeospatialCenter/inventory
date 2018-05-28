@@ -4,7 +4,6 @@ import (
 	"net"
 	"testing"
 
-	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/go-test/deep"
 )
 
@@ -23,8 +22,9 @@ func TestIsV6(t *testing.T) {
 
 func TestIPv6IPAllocation(t *testing.T) {
 	type testCase struct {
-		Subnet          *inventorytypes.Subnet
-		Location        *inventorytypes.ChassisLocation
+		Subnet          *net.IPNet
+		Rack            string
+		BottomU         uint
 		ChassisSubIndex string
 		ExpectedIp      net.IP
 		ExpectedErr     error
@@ -36,22 +36,25 @@ func TestIPv6IPAllocation(t *testing.T) {
 
 	cases := []*testCase{
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v6cidrB},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v6cidrB,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedIp:      net.ParseIP("2001:db8::e0:1ce1:fa00:0:1"),
 			ExpectedErr:     nil,
 		},
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v6cidrA},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v6cidrA,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedIp:      net.ParseIP("2001:db8::e01c:e1fa:0:1"),
 			ExpectedErr:     nil,
 		},
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v4cidr},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v4cidr,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedIp:      net.IP{},
 			ExpectedErr:     ErrAllocationNotImplemented,
@@ -59,7 +62,7 @@ func TestIPv6IPAllocation(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		ip, err := GetIPByLocation(c.Subnet, c.Location, c.ChassisSubIndex)
+		ip, err := GetIPByLocation(c.Subnet, c.Rack, c.BottomU, c.ChassisSubIndex)
 		if err != c.ExpectedErr {
 			t.Errorf("got unexpected error: Expected: %v -- Got: %v", c.ExpectedErr, err)
 		}
@@ -75,8 +78,9 @@ func TestIPv6IPAllocation(t *testing.T) {
 
 func TestIPv6RangeAllocation(t *testing.T) {
 	type testCase struct {
-		Subnet          *inventorytypes.Subnet
-		Location        *inventorytypes.ChassisLocation
+		Subnet          *net.IPNet
+		Rack            string
+		BottomU         uint
 		ChassisSubIndex string
 		ExpectedStartIp net.IP
 		ExpectedEndIp   net.IP
@@ -89,24 +93,27 @@ func TestIPv6RangeAllocation(t *testing.T) {
 
 	cases := []*testCase{
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v6cidrB},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v6cidrB,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedStartIp: net.ParseIP("2001:db8:0:60:1ce1:fa00::"),
 			ExpectedEndIp:   net.ParseIP("2001:db8:0:60:1ce1:faff:ffff:ffff"),
 			ExpectedErr:     nil,
 		},
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v6cidrA},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v6cidrA,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedStartIp: net.ParseIP("2001:db8:0:0:601c:e1fa:0::"),
 			ExpectedEndIp:   net.ParseIP("2001:db8::601c:e1fa:ffff:ffff"),
 			ExpectedErr:     nil,
 		},
 		&testCase{
-			Subnet:          &inventorytypes.Subnet{Cidr: v4cidr},
-			Location:        &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31},
+			Subnet:          v4cidr,
+			Rack:            "xr20",
+			BottomU:         31,
 			ChassisSubIndex: "a",
 			ExpectedStartIp: net.IP{},
 			ExpectedEndIp:   net.IP{},
@@ -115,8 +122,8 @@ func TestIPv6RangeAllocation(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Logf("Testing %s: %s", c.Subnet.Cidr.String(), c.ExpectedStartIp)
-		ipStart, ipEnd, err := GetRangeByLocation(c.Subnet, c.Location, c.ChassisSubIndex)
+		t.Logf("Testing %s: %s", c.Subnet.String(), c.ExpectedStartIp)
+		ipStart, ipEnd, err := GetRangeByLocation(c.Subnet, c.Rack, c.BottomU, c.ChassisSubIndex)
 		if err != c.ExpectedErr {
 			t.Errorf("got unexpected error: Expected: %v -- Got: %v", c.ExpectedErr, err)
 		}

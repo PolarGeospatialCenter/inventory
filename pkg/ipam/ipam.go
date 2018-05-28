@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 
-	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/azenk/iputils"
 )
 
@@ -18,8 +17,8 @@ func IsV6(ip net.IP) bool {
 	return ip.To4() == nil && ip.To16() != nil
 }
 
-func LocationBits(location *inventorytypes.ChassisLocation, sublocation string) (uint64, error) {
-	rackInt, err := strconv.ParseUint(location.Rack[len(location.Rack)-4:], 36, 32)
+func LocationBits(rack string, bottomU uint, sublocation string) (uint64, error) {
+	rackInt, err := strconv.ParseUint(rack[len(rack)-4:], 36, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -33,24 +32,24 @@ func LocationBits(location *inventorytypes.ChassisLocation, sublocation string) 
 	}
 
 	locationBits := rackInt << 10
-	locationBits |= (uint64(location.BottomU) << 4) & 0x03f0
+	locationBits |= (uint64(bottomU) << 4) & 0x03f0
 	locationBits |= subChassisInt & 0x0f
 	return locationBits, nil
 }
 
-func GetIPByLocation(subnet *inventorytypes.Subnet, location *inventorytypes.ChassisLocation, sublocation string) (net.IP, error) {
+func GetIPByLocation(subnet *net.IPNet, rack string, bottomU uint, sublocation string) (net.IP, error) {
 
-	if IsV6(subnet.Cidr.IP) {
-		locationBits, err := LocationBits(location, sublocation)
+	if IsV6(subnet.IP) {
+		locationBits, err := LocationBits(rack, bottomU, sublocation)
 		if err != nil {
 			return net.IP{}, fmt.Errorf("unable to calculate location bits: %v", err)
 		}
 		// flip msb to indicate that this is a host ip, not the host prefix
 		locationBits |= 1 << 31
 
-		startoffset, _ := subnet.Cidr.Mask.Size()
+		startoffset, _ := subnet.Mask.Size()
 
-		newIp, err := iputils.SetBits(subnet.Cidr.IP, locationBits, uint(startoffset), 32)
+		newIp, err := iputils.SetBits(subnet.IP, locationBits, uint(startoffset), 32)
 		if err != nil {
 			return net.IP{}, fmt.Errorf("unable to set location bits on subnet: %v", err)
 		}
@@ -66,17 +65,17 @@ func GetIPByLocation(subnet *inventorytypes.Subnet, location *inventorytypes.Cha
 	}
 }
 
-func GetRangeByLocation(subnet *inventorytypes.Subnet, location *inventorytypes.ChassisLocation, sublocation string) (net.IP, net.IP, error) {
+func GetRangeByLocation(subnet *net.IPNet, rack string, bottomU uint, sublocation string) (net.IP, net.IP, error) {
 
-	if IsV6(subnet.Cidr.IP) {
-		locationBits, err := LocationBits(location, sublocation)
+	if IsV6(subnet.IP) {
+		locationBits, err := LocationBits(rack, bottomU, sublocation)
 		if err != nil {
 			return net.IP{}, net.IP{}, fmt.Errorf("unable to calculate location bits: %v", err)
 		}
 
-		startoffset, _ := subnet.Cidr.Mask.Size()
+		startoffset, _ := subnet.Mask.Size()
 
-		newIp, err := iputils.SetBits(subnet.Cidr.IP, locationBits, uint(startoffset), 32)
+		newIp, err := iputils.SetBits(subnet.IP, locationBits, uint(startoffset), 32)
 		if err != nil {
 			return net.IP{}, net.IP{}, fmt.Errorf("unable to set location bits on subnet: %v", err)
 		}

@@ -79,7 +79,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("The node you specified could not be found"))
 		}
 
-		startIp, endIp, err := ipam.GetRangeByLocation(subnet, node.ChassisLocation, node.ChassisSubIndex)
+		startIp, endIp, err := ipam.GetRangeByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
 		if err == ipam.ErrAllocationNotImplemented {
 			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, err)
 		} else if err != nil {
