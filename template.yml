@@ -87,6 +87,26 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+          /ipam/{networkId}/{subnetName}/ip:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /ipam/{networkId}/{subnetName}/prefix:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMPrefixAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
   NodeTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
@@ -253,5 +273,35 @@ Resources:
           Properties:
             Path: /nodeconfig
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  IPAMIpAllocation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: ipam-ip
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/{networkId}/{subnetName}/ip
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+  IPAMPrefixAllocation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: ipam-prefix
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/{networkId}/{subnetName}/prefix
+            Method: post
             RestApiId:
               Ref: SystemDataApi
