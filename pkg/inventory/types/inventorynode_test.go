@@ -42,32 +42,6 @@ func TestInventoryNodeUnmarshalJSON(t *testing.T) {
 	testUnmarshalJSON(t, node, expected, jsonString)
 }
 
-func TestInventoryNodeV6Allocation(t *testing.T) {
-	node, _, _ := getTestNode()
-	sys, _, _ := getTestSystem()
-	network, _, _ := getTestNetwork()
-	v6Subnet, _, _ := getTestSubnetV6()
-	network.Subnets = []*Subnet{v6Subnet}
-	networks := make(NetworkMap)
-	networks[network.ID()] = network
-	systems := make(SystemMap)
-	systems[sys.ID()] = sys
-	inode, err := NewInventoryNode(node, networks, systems)
-	if err != nil {
-		t.Fatalf("Unable to create inventory node: %v", err)
-	}
-
-	nodeAllocation, err := inode.GetNodeAllocation("logical", 0)
-	if err != nil {
-		t.Fatalf("Unable to get node allocation: %v", err)
-	}
-
-	if nodeAllocation != "2001:db8:0:1:1::" {
-		t.Errorf("Wrong node allocation returned, got %s", nodeAllocation)
-	}
-
-}
-
 func TestInventoryNodeIPs(t *testing.T) {
 	node, _, _ := getTestInventoryNode()
 	expected_ips := []net.IP{net.ParseIP("10.0.0.1")}

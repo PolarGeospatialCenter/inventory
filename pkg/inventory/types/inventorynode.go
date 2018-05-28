@@ -3,11 +3,8 @@ package types
 import (
 	"fmt"
 	"net"
-	"regexp"
-	"strconv"
 	"time"
 
-	"github.com/azenk/iputils"
 )
 
 type NetworkDB interface {
@@ -150,40 +147,4 @@ func (i *InventoryNode) IPs() []net.IP {
 		}
 	}
 	return ips
-}
-
-// GetNodeAllocation returns a unique ipv6 allocation for a node
-func (i *InventoryNode) GetNodeAllocation(logicalNetworkName string, subnetID int) (string, error) {
-	nic, ok := i.Networks[logicalNetworkName]
-	if !ok {
-		return "", fmt.Errorf("requested network does not exist: %s", logicalNetworkName)
-	}
-
-	if subnetID >= len(nic.Network.Subnets) {
-		return "", fmt.Errorf("requested subnet out of bounds")
-	}
-
-	subnetCidr := nic.Network.Subnets[subnetID].Cidr
-	if subnetCidr.IP.To4() != nil {
-		return "", fmt.Errorf("getting an allocation from a v4 subnet isn't supported")
-	}
-
-	var serialNumber uint64
-	serialNumberWidth := 16
-
-	re := regexp.MustCompile("[^0-9]*([0-9]*)")
-	matches := re.FindStringSubmatch(i.ID())
-	serialNumber, err := strconv.ParseUint(matches[1], 10, serialNumberWidth)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse serialnumber from inventory ID: %v", err)
-	}
-
-	if serialNumber >= (1 << uint(serialNumberWidth)) {
-		return "", fmt.Errorf("node serial number too large")
-	}
-
-	startoffset, _ := subnetCidr.Mask.Size()
-	newIP, err := iputils.SetBits(subnetCidr.IP, serialNumber, uint(startoffset), uint(serialNumberWidth))
-
-	return newIP.String(), err
 }
