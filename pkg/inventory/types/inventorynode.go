@@ -99,7 +99,22 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 			return nil, err
 		}
 
-		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network}
+		ips := make([]string, 0)
+		gateways := make([]string, 0)
+		for _, subnet := range network.Subnets {
+			if subnet.Cidr.Contains(nicinfo.IP) {
+				ip := net.IPNet{IP: nicinfo.IP, Mask: subnet.Cidr.Mask}
+				ips = append(ips, ip.String())
+				gateways = append(gateways, subnet.Gateway.String())
+			}
+		}
+
+		config := &NicConfig{
+			IP:      ips,
+			Gateway: gateways,
+		}
+
+		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network, Config: *config}
 		logical, err := inode.Environment.LookupLogicalNetworkName(netname)
 		if err != nil {
 			return nil, err

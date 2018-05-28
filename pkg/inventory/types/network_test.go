@@ -2,32 +2,42 @@ package types
 
 import (
 	"encoding/json"
+	"net"
 	"testing"
 	"time"
 )
 
 func getTestNetwork() (*Network, string, string) {
-	net := NewNetwork()
-	net.Domain = "test.local"
-	net.MTU = 9000
-	net.Name = "test_phys"
-	net.Subnets = make([]*Subnet, 0)
-	net.LastUpdated = time.Unix(123456789, 0).UTC()
-	net.Metadata = make(map[string]interface{})
-	net.Metadata["foo"] = "test"
-	net.Metadata["bar"] = 34.1
+	network := NewNetwork()
+	network.Domain = "test.local"
+	network.MTU = 9000
+	network.Name = "test_phys"
+	_, cidr, _ := net.ParseCIDR("10.0.0.0/24")
+	network.Subnets = []*Subnet{
+		&Subnet{Name: "testsubnet", Cidr: cidr, Gateway: net.ParseIP("10.0.0.254"), DNS: []net.IP{net.ParseIP("10.53.53.53")}},
+	}
 
-	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
+	network.LastUpdated = time.Unix(123456789, 0).UTC()
+	network.Metadata = make(map[string]interface{})
+	network.Metadata["foo"] = "test"
+	network.Metadata["bar"] = 34.1
+
+	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[{"Name":"testsubnet","Gateway":"10.0.0.254","DNS":["10.53.53.53"],"Cidr":"10.0.0.0/24"}],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
 	yamlString := `name: test_phys
 mtu: 9000
 domain: test.local
-subnets: []
+subnets:
+  - name: testsubnet
+    cidr: "10.0.0.0/24"
+    dns:
+      - 10.53.53.53
+    gateway: 10.0.0.254
 lastupdated: 1973-11-29T21:33:09Z
 metadata:
   foo: test
   bar: 34.1
 `
-	return net, jsonString, yamlString
+	return network, jsonString, yamlString
 }
 
 func TestNetworkMarshalJSON(t *testing.T) {
