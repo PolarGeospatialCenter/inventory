@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/ipam"
 )
 
 type NetworkDB interface {
@@ -101,6 +102,14 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 		for _, subnet := range network.Subnets {
 			if subnet.Cidr.Contains(nicinfo.IP) {
 				ip := net.IPNet{IP: nicinfo.IP, Mask: subnet.Cidr.Mask}
+				ips = append(ips, ip.String())
+				gateways = append(gateways, subnet.Gateway.String())
+			} else if subnet.AllocationMethod == "static_inventory" {
+				allocatedIp, err := ipam.GetIPByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
+				if err != nil {
+					return nil, fmt.Errorf("error allocating ip from subnet: %v", err)
+				}
+				ip := net.IPNet{IP: allocatedIp, Mask: subnet.Cidr.Mask}
 				ips = append(ips, ip.String())
 				gateways = append(gateways, subnet.Gateway.String())
 			}
