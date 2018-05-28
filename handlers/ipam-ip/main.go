@@ -100,7 +100,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 // Handler handles requests for nodes
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	switch request.HTTPMethod {
-	case http.MethodGet:
+	case http.MethodPost:
 		return GetHandler(ctx, request)
 	default:
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))

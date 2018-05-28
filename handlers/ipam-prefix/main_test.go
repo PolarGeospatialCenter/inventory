@@ -76,7 +76,7 @@ func TestGetHandler(t *testing.T) {
 
 	for _, c := range cases {
 		t.Logf("Testing query: %v", c.queryParameters)
-		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet, PathParameters: c.pathParameters, Body: c.body})
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodPost, PathParameters: c.pathParameters, Body: c.body})
 		if err != nil {
 			t.Errorf("error occurred while testing handler: %v", err)
 			continue
