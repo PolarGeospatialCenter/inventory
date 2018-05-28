@@ -12,11 +12,12 @@ func getTestSubnetV4() (*Subnet, string, string) {
 	dns0 := net.ParseIP("10.0.1.1")
 	dns1 := net.ParseIP("10.0.2.2")
 	dns := []net.IP{dns0, dns1}
-	subnet := &Subnet{Name: "test", Cidr: cidr, Gateway: gateway, DNS: dns}
-	marshaledJSON := `{"Name":"test","Gateway":"10.0.0.254","DNS":["10.0.1.1","10.0.2.2"],"Cidr":"10.0.0.0/24"}`
+	subnet := &Subnet{Name: "test", Cidr: cidr, Gateway: gateway, DNS: dns, AllocationMethod: "static_inventory"}
+	marshaledJSON := `{"Name":"test","Gateway":"10.0.0.254","DNS":["10.0.1.1","10.0.2.2"],"AllocationMethod":"static_inventory","Cidr":"10.0.0.0/24"}`
 	marhsaledYAML := `name: "test"
 cidr: 10.0.0.0/24
 gateway: 10.0.0.254
+allocationmethod: static_inventory
 dns:
   - 10.0.1.1
   - 10.0.2.2
@@ -32,7 +33,7 @@ func TestSubnetMarshalV4(t *testing.T) {
 	}
 
 	if string(result) != expected {
-		t.Fatalf("The marshaled version of the NICInfo is incorrect: '%s', Expected: '%s'", string(result), expected)
+		t.Fatalf("The marshaled version of the Subnet is incorrect: '%s', Expected: '%s'", string(result), expected)
 	}
 }
 
@@ -55,7 +56,7 @@ func getTestSubnetV6() (*Subnet, string, string) {
 	dns1 := net.ParseIP("10.0.2.2")
 	dns := []net.IP{dns0, dns1}
 	subnet := &Subnet{Name: "test", Cidr: cidr, Gateway: gateway, DNS: dns}
-	marshaledJSON := `{"Name":"test","Gateway":"2001:db8:0:1::1","DNS":["2001:db8:0:2::1","10.0.2.2"],"Cidr":"2001:db8:0:1::/64"}`
+	marshaledJSON := `{"Name":"test","Gateway":"2001:db8:0:1::1","DNS":["2001:db8:0:2::1","10.0.2.2"],"AllocationMethod":"","Cidr":"2001:db8:0:1::/64"}`
 	marhsaledYAML := `name: "test"
 cidr: 2001:db8:0:1::/64
 gateway: 2001:db8:0:1::1
@@ -73,7 +74,7 @@ func TestSubnetMarshalV6(t *testing.T) {
 	}
 
 	if string(result) != expected {
-		t.Fatalf("The marshaled version of the NICInfo is incorrect: '%s', Expected: '%s'", string(result), expected)
+		t.Fatalf("The marshaled version of the Subnet is incorrect: '%s', Expected: '%s'", string(result), expected)
 	}
 }
 

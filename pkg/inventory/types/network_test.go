@@ -22,7 +22,7 @@ func getTestNetwork() (*Network, string, string) {
 	network.Metadata["foo"] = "test"
 	network.Metadata["bar"] = 34.1
 
-	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[{"Name":"testsubnet","Gateway":"10.0.0.254","DNS":["10.53.53.53"],"Cidr":"10.0.0.0/24"}],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
+	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[{"Name":"testsubnet","Gateway":"10.0.0.254","DNS":["10.53.53.53"],"AllocationMethod":"","Cidr":"10.0.0.0/24"}],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
 	yamlString := `name: test_phys
 mtu: 9000
 domain: test.local
