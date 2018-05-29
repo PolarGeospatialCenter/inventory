@@ -112,19 +112,11 @@ func (db *DynamoDBStore) createTable(table string) error {
 				AttributeName: aws.String("id"),
 				AttributeType: aws.String("S"),
 			},
-			{
-				AttributeName: aws.String("last_updated"),
-				AttributeType: aws.String("N"),
-			},
 		},
 		KeySchema: []*dynamodb.KeySchemaElement{
 			{
 				AttributeName: aws.String("id"),
 				KeyType:       aws.String("HASH"),
-			},
-			{
-				AttributeName: aws.String("last_updated"),
-				KeyType:       aws.String("RANGE"),
 			},
 		},
 		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
@@ -136,10 +128,6 @@ func (db *DynamoDBStore) createTable(table string) error {
 
 	_, err := db.db.CreateTable(input)
 	return err
-}
-
-func (db *DynamoDBStore) Nodes() (map[string]*types.InventoryNode, error) {
-	return map[string]*types.InventoryNode{}, nil
 }
 
 func (db *DynamoDBStore) Refresh() error {
@@ -175,7 +163,6 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 
 	invObj := obj.(InventoryObject)
 	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
-	putItem.Item["last_updated"], _ = dynamodbattribute.Marshal(invObj.Timestamp())
 
 	log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
