@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 
@@ -25,16 +24,17 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		node, err := inv.GetNodeByID(nodeId)
 		switch err {
 		case inventory.ErrObjectNotFound:
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, err)
+			return lambdautils.ErrResponse(http.StatusNotFound, err)
 		case nil:
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, node)
+			return lambdautils.SimpleOKResponse(node)
 		default:
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+			return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
 		}
 	}
 
 	if len(request.QueryStringParameters) == 0 {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("Querying all nodes is not implemented.  Please provide a filter."))
+		return lambdautils.ErrStringResponse(http.StatusNotImplemented,
+			"Querying all nodes is not implemented.  Please provide a filter.")
 	}
 
 	var nodeErr error
@@ -42,27 +42,28 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, err)
+			return lambdautils.ErrResponse(http.StatusBadRequest, err)
 		}
 
 		node, nodeErr = inv.GetNodeByMAC(mac)
 		if nodeErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, []*inventorytypes.Node{node})
+			return lambdautils.SimpleOKResponse([]*inventorytypes.Node{node})
 		}
 	} else if nodeID, ok := request.QueryStringParameters["id"]; ok {
 		node, nodeErr = inv.GetNodeByID(nodeID)
 		if nodeErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, []*inventorytypes.Node{node})
+			return lambdautils.SimpleOKResponse([]*inventorytypes.Node{node})
 		}
 	} else {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("invalid request, please check your parameters and try again"))
+		return lambdautils.ErrStringResponse(http.StatusBadRequest,
+			"invalid request, please check your parameters and try again")
 	}
 
 	if nodeErr == inventory.ErrObjectNotFound {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, nodeErr)
+		return lambdautils.ErrResponse(http.StatusNotFound, nodeErr)
 	}
 
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+	return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
 }
 
 // Handler handles requests for nodes
@@ -71,7 +72,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	case http.MethodGet:
 		return GetHandler(ctx, request)
 	default:
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))
+		return lambdautils.ErrResponse(http.StatusNotImplemented, nil)
 	}
 }
 

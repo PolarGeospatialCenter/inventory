@@ -2,6 +2,8 @@ package lambdautils
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -32,4 +34,19 @@ func NewJSONAPIGatewayProxyResponse(statusCode int, headers map[string]string, b
 	response.Body = string(bodyBytes)
 
 	return response, nil
+}
+
+func SimpleOKResponse(result interface{}) (*events.APIGatewayProxyResponse, error) {
+	return NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, result)
+}
+
+func ErrStringResponse(statusCode int, msg string) (*events.APIGatewayProxyResponse, error) {
+	return NewJSONAPIGatewayProxyResponse(statusCode, map[string]string{}, fmt.Errorf(msg))
+}
+
+func ErrResponse(statusCode int, err error) (*events.APIGatewayProxyResponse, error) {
+	if err == nil {
+		err = errors.New(http.StatusText(statusCode))
+	}
+	return NewJSONAPIGatewayProxyResponse(statusCode, map[string]string{}, err)
 }
