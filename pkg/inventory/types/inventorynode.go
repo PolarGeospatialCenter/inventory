@@ -99,10 +99,14 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 
 		ips := make([]string, 0)
 		gateways := make([]string, 0)
+		dns := make([]string, 0)
 		for _, subnet := range network.Subnets {
 			if subnet.Cidr.Contains(nicinfo.IP) {
 				ip := net.IPNet{IP: nicinfo.IP, Mask: subnet.Cidr.Mask}
 				ips = append(ips, ip.String())
+				for _, dnsIP := range subnet.DNS {
+					dns = append(dns, dnsIP.String())
+				}
 				gateways = append(gateways, subnet.Gateway.String())
 			} else if subnet.AllocationMethod == "static_inventory" {
 				allocatedIp, err := ipam.GetIPByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
@@ -111,6 +115,9 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 				}
 				ip := net.IPNet{IP: allocatedIp, Mask: subnet.Cidr.Mask}
 				ips = append(ips, ip.String())
+				for _, dnsIP := range subnet.DNS {
+					dns = append(dns, dnsIP.String())
+				}
 				gateways = append(gateways, subnet.Gateway.String())
 			}
 		}
@@ -118,6 +125,7 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 		config := &NicConfig{
 			IP:      ips,
 			Gateway: gateways,
+			DNS:     dns,
 		}
 
 		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network, Config: *config}
