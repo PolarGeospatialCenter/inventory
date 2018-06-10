@@ -135,7 +135,7 @@ func (db *DynamoDBStore) Refresh() error {
 }
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
-	log.Printf("Updating %s: %s", obj.ID(), obj.Timestamp())
+	log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
