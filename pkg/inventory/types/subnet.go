@@ -7,10 +7,11 @@ import (
 
 // Subnet stores information about an IP subnet
 type Subnet struct {
-	Name    string
-	Cidr    *net.IPNet
-	Gateway net.IP
-	DNS     []net.IP
+	Name             string
+	Cidr             *net.IPNet
+	Gateway          net.IP
+	DNS              []net.IP
+	AllocationMethod string
 }
 
 // MarshalJSON implements the Marshaler Interface so that cidr is rendered as a
@@ -49,10 +50,11 @@ func (s *Subnet) UnmarshalJSON(data []byte) error {
 // UnmarshalYAML unmarshals a NICInfo object, converting cidr from a string
 func (s *Subnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	v := &struct {
-		Name    string
-		Gateway net.IP
-		Cidr    string
-		DNS     []net.IP
+		Name             string
+		Gateway          net.IP
+		Cidr             string
+		AllocationMethod string
+		DNS              []net.IP
 	}{}
 	err := unmarshal(v)
 	if err != nil {
@@ -62,6 +64,7 @@ func (s *Subnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.Name = v.Name
 	s.Gateway = v.Gateway
 	s.DNS = v.DNS
+	s.AllocationMethod = v.AllocationMethod
 	s.Cidr = cidr
 	return err
 }

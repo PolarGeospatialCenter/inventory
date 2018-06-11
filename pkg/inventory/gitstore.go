@@ -71,7 +71,7 @@ func (g *GitStore) Fetch(options *git.FetchOptions) error {
 		return err
 	}
 
-	log.Println("Get tree object for: %s", commit)
+	log.Printf("Get tree object for: %s", commit)
 	tree, err := g.repo.TreeObject(commit.TreeHash)
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (g *GitStore) fileUpdateTimes() (FileUpdateTimes, error) {
 			return err
 		}
 
-		log.Printf("%s", len(changes))
+		log.Printf("%d", len(changes))
 		for _, change := range changes {
 			if updateTimes.Update(change.To.Name, pTime) {
 				log.Printf("Set last update time of %s to %s", change.To.Name, pTime)
@@ -163,7 +163,7 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 			return err
 		}
 		obj.LastUpdated = updateTime
-		log.Printf("%s", obj)
+		log.Printf("%v", obj)
 		return g.cache.Update(obj)
 	case "system":
 		obj := types.NewSystem()
@@ -181,7 +181,7 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 			return err
 		}
 		obj.LastUpdated = updateTime
-		log.Printf("%s", obj)
+		log.Printf("%v", obj)
 		return g.cache.Update(obj)
 	default:
 		log.Printf("No matching object type found")

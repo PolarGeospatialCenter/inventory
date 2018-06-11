@@ -112,19 +112,11 @@ func (db *DynamoDBStore) createTable(table string) error {
 				AttributeName: aws.String("id"),
 				AttributeType: aws.String("S"),
 			},
-			{
-				AttributeName: aws.String("last_update"),
-				AttributeType: aws.String("N"),
-			},
 		},
 		KeySchema: []*dynamodb.KeySchemaElement{
 			{
 				AttributeName: aws.String("id"),
 				KeyType:       aws.String("HASH"),
-			},
-			{
-				AttributeName: aws.String("last_update"),
-				KeyType:       aws.String("RANGE"),
 			},
 		},
 		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
@@ -138,15 +130,12 @@ func (db *DynamoDBStore) createTable(table string) error {
 	return err
 }
 
-func (db *DynamoDBStore) Nodes() (map[string]*types.InventoryNode, error) {
-	return map[string]*types.InventoryNode{}, nil
-}
-
 func (db *DynamoDBStore) Refresh() error {
 	return nil
 }
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
+	log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
@@ -174,7 +163,6 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 
 	invObj := obj.(InventoryObject)
 	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
-	putItem.Item["last_update"], _ = dynamodbattribute.Marshal(invObj.Timestamp())
 
 	log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
@@ -257,13 +245,18 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
 	err := db.getNewest(id, node)
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		err = ErrObjectNotFound
+	}
 	return node, err
 }
 
 func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error) {
 	e := &NodeMacIndexEntry{}
 	err := db.getNewest(mac.String(), e)
-	if err != nil {
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -273,7 +266,10 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
 	err := db.getNewest(id, network)
-	if err != nil {
+
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -286,6 +282,11 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
 	err := db.getNewest(id, system)
+
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return nil, ErrObjectNotFound
+	}
+
 	return system, err
 }
 

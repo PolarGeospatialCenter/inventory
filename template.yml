@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: A hello world application.
+
+Resources:
+  SystemDataApi:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+      StageName: "v0"
+      DefinitionBody:
+        swagger: "2.0"
+        securityDefinitions:
+          sigv4:
+            type: apiKey
+            name: Authorization
+            in: header
+            x-amazon-apigateway-authtype: awsSigv4
+        security:
+          - sigv4: []
+        paths:
+          /health:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheck.Arn}/invocations
+              responses: {}
+              security: []
+          /node/{nodeId}:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /node:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /network:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /system:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /nodeconfig/{nodeId}:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /nodeconfig:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeConfigLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /ipam/{networkId}/{subnetName}/ip:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /ipam/{networkId}/{subnetName}/prefix:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMPrefixAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+  NodeTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: inventory_nodes
+      Tags:
+        - Key: application
+          Value: inventory
+  MACLookupTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: inventory_node_mac_lookup
+      Tags:
+        - Key: application
+          Value: inventory
+  SystemTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: inventory_systems
+      Tags:
+        - Key: application
+          Value: inventory
+  NetworkTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: inventory_networks
+      Tags:
+        - Key: application
+          Value: inventory
+  HealthCheck:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: health
+      CodeUri: bin/
+      Runtime: go1.x
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  NodeLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: node
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        QueryNodesEvent:
+          Type: Api
+          Properties:
+            Path: /node
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  NetworkLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: network
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /network
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  SystemLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: system
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /system
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  NodeConfigLookup:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: nodeconfig
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /nodeconfig/{nodeId}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        QueryNodesEvent:
+          Type: Api
+          Properties:
+            Path: /nodeconfig
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+  IPAMIpAllocation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: ipam-ip
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/{networkId}/{subnetName}/ip
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+  IPAMPrefixAllocation:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: ipam-prefix
+      CodeUri: bin/
+      Runtime: go1.x
+      Policies: AmazonDynamoDBFullAccess
+      Events:
+        GetNodeEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/{networkId}/{subnetName}/prefix
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi

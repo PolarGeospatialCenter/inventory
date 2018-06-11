@@ -11,12 +11,12 @@ func TestFileInventory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to read inventory nodes: %s", err)
 	}
-	t.Logf("Nodes: %s", nodes)
+	t.Logf("Nodes: %v", nodes)
 	if len(nodes) != 3 {
 		t.Fatalf("The wrong number of nodes were returned: %d", len(nodes))
 	}
 
-	t.Logf("Nodes: %s", nodes)
+	t.Logf("Nodes: %v", nodes)
 }
 
 func TestRenderedInventoryNode(t *testing.T) {
