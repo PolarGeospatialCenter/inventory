@@ -118,7 +118,9 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 				for _, dnsIP := range subnet.DNS {
 					dns = append(dns, dnsIP.String())
 				}
-				gateways = append(gateways, subnet.Gateway.String())
+				if subnet.Gateway != nil {
+					gateways = append(gateways, subnet.Gateway.String())
+				}
 			}
 		}
 
