@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	"github.com/spf13/viper"
@@ -68,6 +69,19 @@ func main() {
 		hostVars[fqdn]["role"] = node.Role
 		hostVars[fqdn]["ansible_host"] = node.Networks["provisioning"].NIC.IP
 		hostVars[fqdn]["last_update"] = node.LastUpdated
+		hostVars[fqdn]["nodeconfig"] = node
+		if cpNetworkName, ok := node.Environment.Metadata["kubernetes_control_plane_network"].(string); ok {
+			if cpNetwork, ok := node.Networks[cpNetworkName]; ok {
+				hostVars[fqdn]["kube_control_plane_domain"] = cpNetwork.Network.Domain
+				hostVars[fqdn]["kube_control_plane_ips"] = make([]string, 0, len(cpNetwork.Config.IP))
+				for _, ipString := range cpNetwork.Config.IP {
+					ip, _, err := net.ParseCIDR(ipString)
+					if err == nil {
+						hostVars[fqdn]["kube_control_plane_ips"] = append(hostVars[fqdn]["kube_control_plane_ips"].([]string), ip.String())
+					}
+				}
+			}
+		}
 	}
 
 	result := make(map[string]interface{})
