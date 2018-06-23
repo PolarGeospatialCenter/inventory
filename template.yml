@@ -37,8 +37,35 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /node:
             get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            post:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
@@ -198,6 +225,27 @@ Resources:
           Properties:
             Path: /node/{nodeId}
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        UpdateNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        CreateNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
         QueryNodesEvent:

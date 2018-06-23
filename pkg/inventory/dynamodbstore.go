@@ -172,8 +172,24 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	return nil
 }
 
-func (db *DynamoDBStore) Delete(interface{}) error {
-	return nil
+// Delete deletes the inventory object from dynamodb
+func (db *DynamoDBStore) Delete(obj InventoryObject) error {
+	objID, err := dynamodbattribute.Marshal(obj.ID())
+	if err != nil {
+		return fmt.Errorf("unable to marshal object id for deletion: %v", err)
+	}
+
+	table := db.tableMap.LookupTable(obj)
+	partitionKey, err := db.getPartitionKey(table)
+	if err != nil {
+		return fmt.Errorf("unable to determine partition key for requested delete object type (%T): %v", obj, err)
+	}
+	deleteItem := &dynamodb.DeleteItemInput{}
+	deleteItem.SetKey(map[string]*dynamodb.AttributeValue{partitionKey: objID})
+	deleteItem.SetTableName(table)
+
+	_, err = db.db.DeleteItem(deleteItem)
+	return err
 }
 
 func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
@@ -222,6 +238,34 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	}
 	err = dynamodbattribute.UnmarshalMap(results.Items[0], out)
 	return err
+}
+
+func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
+	table := db.tableMap.LookupTable(obj)
+	partitionKeyName, err := db.getPartitionKey(table)
+	if err != nil {
+		return false, err
+	}
+
+	queryValues, err := dynamodbattribute.MarshalMap(map[string]string{":partitionkeyval": obj.ID()})
+	if err != nil {
+		return false, err
+	}
+
+	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
+	q := &dynamodb.QueryInput{
+		ScanIndexForward:          aws.Bool(false),
+		TableName:                 aws.String(table),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
+	}
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return false, err
+	}
+
+	return len(results.Items) != 0, nil
 }
 
 func (db *DynamoDBStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
