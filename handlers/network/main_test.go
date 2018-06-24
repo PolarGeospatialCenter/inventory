@@ -53,15 +53,15 @@ func TestGetHandler(t *testing.T) {
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
-				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"id": "foo"},
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "foo"},
 			},
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
-				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"id": "testnetwork"},
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
 			},
 			TestResult: &testutils.TestResult{
 				ExpectedBodyObject: network,
@@ -70,8 +70,8 @@ func TestGetHandler(t *testing.T) {
 		},
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
-				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"badparam": "foo"},
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"badparam": "foo"},
 			},
 			TestResult: testutils.ExpectError(http.StatusBadRequest),
 		},
@@ -79,7 +79,7 @@ func TestGetHandler(t *testing.T) {
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodGet,
 			},
-			TestResult: testutils.ExpectError(http.StatusBadRequest, "No network requested, please add query parameters"),
+			TestResult: testutils.ExpectError(http.StatusBadRequest),
 		},
 	}
 	cases.RunTests(t, Handler)

@@ -14,11 +14,7 @@ import (
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	if len(request.QueryStringParameters) < 1 {
-		return lambdautils.ErrBadRequest("No network requested, please add query parameters")
-	}
-
-	if networkID, ok := request.QueryStringParameters["id"]; ok {
+	if networkID, ok := request.PathParameters["networkId"]; ok {
 		db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 		inv := inventory.NewDynamoDBStore(db, nil)
 		network, err := inv.GetNetworkByID(networkID)

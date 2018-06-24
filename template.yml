@@ -74,7 +74,7 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
-          /network:
+          /network/{networkId}:
             get:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -294,7 +294,7 @@ Resources:
         GetEvent:
           Type: Api
           Properties:
-            Path: /network
+            Path: /network/{networkId}
             Method: get
             RestApiId:
               Ref: SystemDataApi
