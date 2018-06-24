@@ -208,7 +208,6 @@ func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
 // getNewest returns the entry from the table with a partition id matching id and
 // the highest sort key (last_updated timestamp)
 func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
-	f := false
 	table := db.tableMap.LookupTable(out)
 	partitionKeyName, err := db.getPartitionKey(table)
 	if err != nil {
@@ -222,9 +221,9 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 
 	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
 	q := &dynamodb.QueryInput{
-		ScanIndexForward:          &f,
-		TableName:                 &table,
-		KeyConditionExpression:    &queryString,
+		ScanIndexForward:          aws.Bool(false),
+		TableName:                 aws.String(table),
+		KeyConditionExpression:    aws.String(queryString),
 		ExpressionAttributeValues: queryValues,
 	}
 
