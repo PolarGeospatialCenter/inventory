@@ -74,8 +74,36 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+          /network:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /network/{networkId}:
             get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
@@ -296,6 +324,27 @@ Resources:
           Properties:
             Path: /network/{networkId}
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        CreateEvent:
+          Type: Api
+          Properties:
+            Path: /network
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        UpdateEvent:
+          Type: Api
+          Properties:
+            Path: /network/{networkId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteEvent:
+          Type: Api
+          Properties:
+            Path: /network/{networkId}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
   SystemLookup:

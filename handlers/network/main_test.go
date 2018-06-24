@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"testing"
@@ -16,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-func TestGetHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dbInstance, err := dynamodbtest.Run(ctx)
@@ -43,9 +44,16 @@ func TestGetHandler(t *testing.T) {
 	_, testsubnet, _ := net.ParseCIDR("10.0.0.0/24")
 	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Cidr: testsubnet}}
 
-	err = inv.Update(network)
+	netJson, err := json.Marshal(network)
 	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
+		t.Errorf("unable to marshal network: %v", err)
+	}
+
+	updatedNetwork := *network
+	updatedNetwork.MTU = 9000
+	updatedNetJson, err := json.Marshal(updatedNetwork)
+	if err != nil {
+		t.Errorf("unable to marshal updated network: %v", err)
 	}
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
@@ -54,9 +62,26 @@ func TestGetHandler(t *testing.T) {
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
-				PathParameters: map[string]string{"networkId": "foo"},
+				PathParameters: map[string]string{"networkId": "testnetwork"},
 			},
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodPost,
+				Body:       string(netJson),
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: network,
+				ExpectedStatus:     http.StatusCreated,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodPost,
+				Body:       string(netJson),
+			},
+			TestResult: testutils.ExpectError(http.StatusConflict, "An object with that id already exists."),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
@@ -67,6 +92,44 @@ func TestGetHandler(t *testing.T) {
 				ExpectedBodyObject: network,
 				ExpectedStatus:     http.StatusOK,
 			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodPut,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+				Body:           string(updatedNetJson),
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: updatedNetwork,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: updatedNetwork,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodDelete,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: "",
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
 			Request: events.APIGatewayProxyRequest{
