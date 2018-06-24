@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
-	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -16,29 +15,17 @@ import (
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	if len(request.QueryStringParameters) < 1 {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("No node requested, please add query parameters"))
+		return lambdautils.ErrBadRequest("No network requested, please add query parameters")
 	}
-
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
-
-	var networkErr error
-	var network *inventorytypes.Network
 
 	if networkID, ok := request.QueryStringParameters["id"]; ok {
-		network, networkErr = inv.GetNetworkByID(networkID)
-		if networkErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, network)
-		}
-	} else {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("invalid request, please check your parameters and try again"))
+		db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+		inv := inventory.NewDynamoDBStore(db, nil)
+		network, err := inv.GetNetworkByID(networkID)
+		return server.GetObjectResponse(network, err)
 	}
 
-	if networkErr == inventory.ErrObjectNotFound {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, networkErr)
-	}
-
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+	return lambdautils.ErrBadRequest()
 }
 
 // Handler handles requests for nodes
@@ -47,7 +34,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	case http.MethodGet:
 		return GetHandler(ctx, request)
 	default:
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))
+		return lambdautils.ErrNotImplemented()
 	}
 }
 

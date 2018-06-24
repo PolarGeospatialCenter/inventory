@@ -62,7 +62,7 @@ func TestGetHandler(t *testing.T) {
 		testCase{handlerCtx, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
 		testCase{handlerCtx, map[string]string{"id": "testnetwork"}, network, http.StatusOK},
 		testCase{handlerCtx, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "No node requested, please add query parameters"}, http.StatusBadRequest},
+		testCase{handlerCtx, map[string]string{}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "No network requested, please add query parameters"}, http.StatusBadRequest},
 	}
 
 	for _, c := range cases {
@@ -97,7 +97,7 @@ func TestGetHandler(t *testing.T) {
 			body := &inventorytypes.Network{}
 			err = json.Unmarshal([]byte(response.Body), body)
 			if err != nil {
-				t.Errorf("Unable to unmarshal network in response")
+				t.Errorf("Unable to unmarshal network in response: %v", err)
 			}
 
 			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {

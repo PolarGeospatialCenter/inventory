@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
@@ -21,71 +22,33 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	inv := inventory.NewDynamoDBStore(db, nil)
 
 	if nodeId, ok := request.PathParameters["nodeId"]; ok {
-		// looking up an individual node
-		node, err := inv.GetNodeByID(nodeId)
-		switch err {
-		case inventory.ErrObjectNotFound:
-			return lambdautils.ErrResponse(http.StatusNotFound, err)
-		case nil:
-			return lambdautils.SimpleOKResponse(node)
-		default:
-			return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
-		}
+		return server.GetObjectResponse(inv.GetNodeByID(nodeId))
 	}
 
 	if len(request.QueryStringParameters) == 0 {
-		return lambdautils.ErrStringResponse(http.StatusNotImplemented,
-			"Querying all nodes is not implemented.  Please provide a filter.")
+		return lambdautils.ErrNotImplemented("Querying all nodes is not implemented.  Please provide a filter.")
 	}
 
-	var nodeErr error
-	var node *inventorytypes.Node
 	if macString, ok := request.QueryStringParameters["mac"]; ok {
 		mac, err := net.ParseMAC(macString)
 		if err != nil {
-			return lambdautils.ErrResponse(http.StatusBadRequest, err)
+			return lambdautils.ErrBadRequest(err.Error())
 		}
 
-		node, nodeErr = inv.GetNodeByMAC(mac)
-		if nodeErr == nil {
-			return lambdautils.SimpleOKResponse([]*inventorytypes.Node{node})
-		}
+		node, err := inv.GetNodeByMAC(mac)
+		return server.GetObjectResponse([]*inventorytypes.Node{node}, err)
 	} else if nodeID, ok := request.QueryStringParameters["id"]; ok {
-		node, nodeErr = inv.GetNodeByID(nodeID)
-		if nodeErr == nil {
-			return lambdautils.SimpleOKResponse([]*inventorytypes.Node{node})
-		}
-	} else {
-		return lambdautils.ErrStringResponse(http.StatusBadRequest,
-			"invalid request, please check your parameters and try again")
+		node, err := inv.GetNodeByID(nodeID)
+		return server.GetObjectResponse([]*inventorytypes.Node{node}, err)
 	}
 
-	if nodeErr == inventory.ErrObjectNotFound {
-		return lambdautils.ErrResponse(http.StatusNotFound, nodeErr)
-	}
-
-	return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
+	return lambdautils.ErrBadRequest()
 }
 
 // PutHandler updates the specified node record
 func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
-
-	var node *inventorytypes.Node
-	if nodeId, ok := request.PathParameters["nodeId"]; ok {
-		var err error
-		// looking up an individual node
-		node, err = inv.GetNodeByID(nodeId)
-		switch err {
-		case inventory.ErrObjectNotFound:
-			return lambdautils.ErrResponse(http.StatusNotFound, err)
-		case nil:
-			break
-		default:
-			return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
-		}
-	} else {
+	nodeId, ok := request.PathParameters["nodeId"]
+	if !ok {
 		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Updating all nodes not allowed.")
 	}
 
@@ -93,19 +56,13 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	updatedNode := &inventorytypes.Node{}
 	err := json.Unmarshal([]byte(request.Body), updatedNode)
 	if err != nil {
-		return lambdautils.ErrStringResponse(http.StatusBadRequest, "Body should contain a valid node.")
+		return lambdautils.ErrBadRequest("Body should contain a valid node.")
 	}
 
-	if updatedNode.InventoryID != node.InventoryID {
-		return lambdautils.ErrStringResponse(http.StatusBadRequest, "Updated node inventory id must match existing.")
-	}
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
 
-	err = inv.Update(updatedNode)
-	if err == nil {
-		return lambdautils.SimpleOKResponse(updatedNode)
-	}
-
-	return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
+	return server.UpdateObject(inv, updatedNode, nodeId)
 }
 
 // PostHandler updates the specified node record
@@ -119,58 +76,27 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 	newNode := &inventorytypes.Node{}
 	err := json.Unmarshal([]byte(request.Body), newNode)
 	if err != nil {
-		return lambdautils.ErrStringResponse(http.StatusBadRequest, "Body should contain a valid node.")
+		return lambdautils.ErrBadRequest("Body should contain a valid node.")
 	}
 
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
-	_, err = inv.GetNodeByID(newNode.ID())
-	switch err {
-	case inventory.ErrObjectNotFound:
-		break
-	case nil:
-		return lambdautils.ErrStringResponse(http.StatusConflict, "A node with that id already exists.")
-	default:
-		return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
-	}
-
-	err = inv.Update(newNode)
-	if err == nil {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, newNode)
-	}
-
-	return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
+	return server.CreateObject(inv, newNode)
 }
 
 // DeleteHandler updates the specified node record
 func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	nodeId, ok := request.PathParameters["nodeId"]
+	if !ok {
+		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Deleting all nodes not allowed.")
+	}
+	node := &inventorytypes.Node{InventoryID: nodeId}
+
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
-	var node *inventorytypes.Node
-	if nodeId, ok := request.PathParameters["nodeId"]; ok {
-		var err error
-		// looking up an individual node
-		node, err = inv.GetNodeByID(nodeId)
-		switch err {
-		case inventory.ErrObjectNotFound:
-			return lambdautils.ErrStringResponse(http.StatusNotFound, "Nodes must exist before you can delete them.")
-		case nil:
-			break
-		default:
-			return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
-		}
-	} else {
-		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Deleting all nodes not allowed.")
-	}
-
-	err := inv.Delete(node)
-	if err == nil {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, "")
-	}
-
-	return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
+	return server.DeleteObject(inv, node)
 }
 
 // Handler handles requests for nodes
@@ -185,7 +111,7 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 	case http.MethodDelete:
 		return DeleteHandler(ctx, request)
 	default:
-		return lambdautils.ErrResponse(http.StatusNotImplemented, nil)
+		return lambdautils.ErrNotImplemented()
 	}
 }
 

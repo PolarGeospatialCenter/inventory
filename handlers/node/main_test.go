@@ -285,7 +285,7 @@ func TestPostHandler(t *testing.T) {
 
 	cases := []testCase{
 		testCase{handlerCtx, map[string]string{}, map[string]string{}, string(nodeJson), node, http.StatusCreated},
-		testCase{handlerCtx, map[string]string{}, map[string]string{}, string(nodeJson), lambdautils.ErrorResponse{Status: "Conflict", ErrorMessage: "A node with that id already exists."}, http.StatusConflict},
+		testCase{handlerCtx, map[string]string{}, map[string]string{}, string(nodeJson), lambdautils.ErrorResponse{Status: "Conflict", ErrorMessage: "An object with that id already exists."}, http.StatusConflict},
 	}
 
 	for _, c := range cases {
@@ -391,7 +391,7 @@ func TestDeleteHandler(t *testing.T) {
 
 	cases := []testCase{
 		testCase{handlerCtx, map[string]string{"nodeId": "testnode"}, map[string]string{}, `""`, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"nodeId": "testnode"}, map[string]string{}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Nodes must exist before you can delete them."}, http.StatusNotFound},
+		testCase{handlerCtx, map[string]string{"nodeId": "testnode"}, map[string]string{}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Objects must exist before you can delete them."}, http.StatusNotFound},
 		testCase{handlerCtx, map[string]string{}, map[string]string{}, lambdautils.ErrorResponse{Status: "Method Not Allowed", ErrorMessage: "Deleting all nodes not allowed."}, http.StatusMethodNotAllowed},
 	}
 
