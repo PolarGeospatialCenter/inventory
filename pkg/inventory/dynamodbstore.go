@@ -267,6 +267,14 @@ func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	return len(results.Items) != 0, nil
 }
 
+func (db *DynamoDBStore) GetByID(id string, obj InventoryObject) error {
+	err := db.getNewest(id, obj)
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return ErrObjectNotFound
+	}
+	return err
+}
+
 func (db *DynamoDBStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
 	node, err := db.GetNodeByID(id)
 	if err != nil {
@@ -287,10 +295,7 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
-	err := db.getNewest(id, node)
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		err = ErrObjectNotFound
-	}
+	err := db.GetByID(id, node)
 	return node, err
 }
 
@@ -308,11 +313,8 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
-	err := db.getNewest(id, network)
-
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		return nil, ErrObjectNotFound
-	} else if err != nil {
+	err := db.GetByID(id, network)
+	if err != nil {
 		return nil, err
 	}
 
@@ -324,12 +326,7 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
-	err := db.getNewest(id, system)
-
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		return nil, ErrObjectNotFound
-	}
-
+	err := db.GetByID(id, system)
 	return system, err
 }
 
