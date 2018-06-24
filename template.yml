@@ -85,7 +85,35 @@ Resources:
               security:
                 - sigv4: []
           /system:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /system/{systemId}:
             get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
@@ -281,8 +309,29 @@ Resources:
         GetEvent:
           Type: Api
           Properties:
-            Path: /system
+            Path: /system/{systemId}
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        CreateEvent:
+          Type: Api
+          Properties:
+            Path: /system
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        UpdateEvent:
+          Type: Api
+          Properties:
+            Path: /system/{systemId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteEvent:
+          Type: Api
+          Properties:
+            Path: /system/{systemId}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
   NodeConfigLookup:
