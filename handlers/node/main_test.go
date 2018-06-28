@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
@@ -24,6 +25,7 @@ func testNode() *inventorytypes.Node {
 	node.Networks = map[string]*inventorytypes.NICInfo{
 		"testnet": &inventorytypes.NICInfo{MAC: testMac},
 	}
+	node.LastUpdated = time.Now()
 	return node
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
@@ -42,6 +43,7 @@ func TestHandler(t *testing.T) {
 			IPXEUrl: "http://test.com/ipxe",
 		},
 	}
+	system.LastUpdated = time.Now()
 
 	systemJson, err := json.Marshal(system)
 	if err != nil {

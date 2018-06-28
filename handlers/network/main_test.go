@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
@@ -43,6 +44,7 @@ func TestHandler(t *testing.T) {
 	network.Metadata["testint"] = float64(5)
 	_, testsubnet, _ := net.ParseCIDR("10.0.0.0/24")
 	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Cidr: testsubnet}}
+	network.LastUpdated = time.Now()
 
 	netJson, err := json.Marshal(network)
 	if err != nil {

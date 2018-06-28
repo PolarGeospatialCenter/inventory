@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
@@ -31,6 +32,10 @@ func UpdateObject(inv InventoryDatabase, obj inventory.InventoryObject, id strin
 		return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
 	}
 
+	if obj.Timestamp() == (&time.Time{}).Unix() {
+		obj.SetTimestamp(time.Now())
+	}
+
 	err = inv.Update(obj)
 	if err == nil {
 		return lambdautils.SimpleOKResponse(obj)
@@ -49,6 +54,10 @@ func CreateObject(inv InventoryDatabase, obj inventory.InventoryObject) (*events
 		break
 	default:
 		return lambdautils.ErrInternalServerError()
+	}
+
+	if obj.Timestamp() == (&time.Time{}).Unix() {
+		obj.SetTimestamp(time.Now())
 	}
 
 	err = inv.Update(obj)
