@@ -27,8 +27,11 @@ func (cases TestCases) RunTests(t *testing.T, handler func(context.Context, even
 		for k, v := range request.QueryStringParameters {
 			queryValues.Add(k, v)
 		}
+		name := "Un-named test"
+		if c.Name != "" {
+			name = c.Name
+		}
 
-		t.Logf("Testing query: %s -- path params: %v -- query: %s -- body: '%s'", request.HTTPMethod, request.PathParameters, queryValues.Encode(), request.Body)
 		response, err := handler(c.Ctx, request)
 		if err != nil {
 			t.Errorf("error occurred while testing handler: %v", err)
@@ -36,14 +39,16 @@ func (cases TestCases) RunTests(t *testing.T, handler func(context.Context, even
 		}
 		err = c.ResponseEqual(t, response)
 		if err != nil {
-			t.Errorf("Test FAILED: %v", err)
+			t.Logf("Test parameters: %s -- path params: %v -- query: %s -- body: '%s'", request.HTTPMethod, request.PathParameters, queryValues.Encode(), request.Body)
+			t.Errorf("FAILED: %s -- %v", name, err)
 		} else {
-			t.Logf("Test PASSED")
+			t.Logf("PASSED: %s", name)
 		}
 	}
 }
 
 type TestCase struct {
+	Name    string
 	Ctx     context.Context
 	Request events.APIGatewayProxyRequest
 	*TestResult
