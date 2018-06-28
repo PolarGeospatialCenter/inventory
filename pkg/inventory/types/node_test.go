@@ -132,3 +132,12 @@ func TestHostnameFailsafe(t *testing.T) {
 		t.Fatalf("Incorrect hostname generated: %s", hostname)
 	}
 }
+
+func TestNodeSetTimestamp(t *testing.T) {
+	n := &Node{}
+	ts := time.Now()
+	n.SetTimestamp(ts)
+	if n.Timestamp() != ts.Unix() {
+		t.Errorf("Timestamp returned doesn't match the time set.")
+	}
+}

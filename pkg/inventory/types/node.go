@@ -30,6 +30,10 @@ func (n *Node) Timestamp() int64 {
 	return n.LastUpdated.Unix()
 }
 
+func (n *Node) SetTimestamp(timestamp time.Time) {
+	n.LastUpdated = timestamp
+}
+
 func (n *Node) Location() string {
 	if n.ChassisLocation != nil && n.Rack != "" && n.ChassisSubIndex != "" {
 		return fmt.Sprintf("%s-%0.2d-%s", n.Rack, n.BottomU, n.ChassisSubIndex)

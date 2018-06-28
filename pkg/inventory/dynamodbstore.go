@@ -63,6 +63,10 @@ func (i *NodeMacIndexEntry) Timestamp() int64 {
 	return i.LastUpdated.Unix()
 }
 
+func (i *NodeMacIndexEntry) SetTimestamp(timestamp time.Time) {
+	i.LastUpdated = timestamp
+}
+
 type DynamoDBTableLookup interface {
 	LookupTable(interface{}) string
 	Tables() []string
