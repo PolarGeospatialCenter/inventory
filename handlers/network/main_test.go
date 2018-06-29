@@ -62,6 +62,7 @@ func TestHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup non-existent network",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -69,6 +70,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Create network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(netJson),
@@ -79,6 +81,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt to create existing object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(netJson),
@@ -86,6 +89,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusConflict, "An object with that id already exists."),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get newly created network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -96,6 +100,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Update network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodPut,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -107,6 +112,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get updated network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -117,6 +123,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Delete network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -127,6 +134,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup deleted object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"networkId": "testnetwork"},
@@ -134,6 +142,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Handle bad path parameters",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"badparam": "foo"},
@@ -141,6 +150,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusBadRequest),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get list of nodes",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodGet,
 			},

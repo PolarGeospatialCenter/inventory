@@ -56,6 +56,7 @@ func TestGetHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get non-existent object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				PathParameters:        map[string]string{},
@@ -64,6 +65,7 @@ func TestGetHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get node via query for id",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"id": "testnode"},
@@ -74,6 +76,7 @@ func TestGetHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get node via nodeId path parameter",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"nodeId": "testnode"},
@@ -84,6 +87,7 @@ func TestGetHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup non-existent node by MAC",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"mac": "01:02:03:04:05:06"},
@@ -91,6 +95,7 @@ func TestGetHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup node by MAC",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].MAC.String()},
@@ -101,6 +106,7 @@ func TestGetHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup node by MAC with extraneous query parameters",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].MAC.String(), "badparam": "baz"},
@@ -111,6 +117,7 @@ func TestGetHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Test MAC address query input validation",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"mac": "foo"},
@@ -118,6 +125,7 @@ func TestGetHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusBadRequest, "address foo: invalid MAC address"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Bad query parameter",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
 				QueryStringParameters: map[string]string{"badparam": "foo"},
@@ -170,6 +178,7 @@ func TestPutHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Update node object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(nodeJson),
@@ -180,6 +189,7 @@ func TestPutHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get updated node",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodPut,
 				PathParameters: map[string]string{"nodeId": "testnode"},
@@ -191,6 +201,7 @@ func TestPutHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt updating all nodes",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPut,
 			},
@@ -228,6 +239,7 @@ func TestPostHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Create new node",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(nodeJson),
@@ -238,6 +250,7 @@ func TestPostHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt to create new node again",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(nodeJson),
@@ -276,6 +289,7 @@ func TestDeleteHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Delete test node",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
 				PathParameters: map[string]string{"nodeId": "testnode"},
@@ -286,6 +300,7 @@ func TestDeleteHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt to delete node again",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
 				PathParameters: map[string]string{"nodeId": "testnode"},
@@ -293,6 +308,7 @@ func TestDeleteHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Objects must exist before you can delete them."),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt to delete all nodes",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodDelete,
 			},

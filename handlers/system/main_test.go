@@ -61,6 +61,7 @@ func TestHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Create test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(systemJson),
@@ -71,6 +72,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get non-existent system",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"systemId": "foo"},
@@ -78,6 +80,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"systemId": "tsts"},
@@ -88,6 +91,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Update test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodPut,
 				PathParameters: map[string]string{"systemId": "tsts"},
@@ -99,6 +103,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get updated test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"systemId": "tsts"},
@@ -109,6 +114,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Delete test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
 				PathParameters: map[string]string{"systemId": "tsts"},
@@ -119,6 +125,7 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get deleted test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"systemId": "tsts"},
@@ -126,13 +133,7 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
-			Request: events.APIGatewayProxyRequest{
-				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"badparam": "foo"},
-			},
-			TestResult: testutils.ExpectError(http.StatusBadRequest),
-		},
-		testutils.TestCase{Ctx: handlerCtx,
+			Name:       "Attempt to get all systems",
 			Request:    events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
 			TestResult: testutils.ExpectError(http.StatusBadRequest),
 		},
