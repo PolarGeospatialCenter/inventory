@@ -26,3 +26,7 @@ func (s *System) ID() string {
 func (s *System) Timestamp() int64 {
 	return s.LastUpdated.Unix()
 }
+
+func (s *System) SetTimestamp(timestamp time.Time) {
+	s.LastUpdated = timestamp
+}

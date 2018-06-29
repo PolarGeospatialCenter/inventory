@@ -3,6 +3,7 @@ package inventory
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 )
@@ -15,6 +16,7 @@ var (
 type InventoryObject interface {
 	ID() string
 	Timestamp() int64
+	SetTimestamp(time.Time)
 }
 
 type InventoryStore interface {

@@ -183,3 +183,106 @@ func TestDynamoDBUpdate(t *testing.T) {
 	}
 
 }
+
+func TestDynamoDBDelete(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	store, err := loadGitStore()
+	if err != nil {
+		t.Fatalf("Failed to load git store: %v", err)
+	}
+	store.Refresh()
+
+	gitNodes, _ := store.GetNodes()
+	numNodes := len(gitNodes)
+	if numNodes != 3 {
+		t.Errorf("Got %d nodes from test git store, expecting %d", numNodes, 3)
+	}
+
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
+	if err != nil {
+		t.Errorf("Error creating dynamo db store tables: %v", err)
+	}
+
+	err = dbstore.UpdateFromInventoryStore(store)
+	if err != nil {
+		t.Errorf("Error updating dynamodb from gitstore: %v", err)
+	}
+
+	for _, node := range gitNodes {
+		err := dbstore.Delete(node)
+		if err != nil {
+			t.Errorf("Deletion of node %s failed: %v", node.ID(), err)
+		}
+
+		if _, err = dbstore.GetNodeByID(node.ID()); err != ErrObjectNotFound {
+			t.Errorf("Found deleted node: %s (err: %v)", node.ID(), err)
+		}
+	}
+
+}
+
+func TestDynamoDBExists(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	store, err := loadGitStore()
+	if err != nil {
+		t.Fatalf("Failed to load git store: %v", err)
+	}
+	store.Refresh()
+
+	gitNodes, _ := store.GetNodes()
+	numNodes := len(gitNodes)
+	if numNodes != 3 {
+		t.Errorf("Got %d nodes from test git store, expecting %d", numNodes, 3)
+	}
+
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
+	if err != nil {
+		t.Errorf("Error creating dynamo db store tables: %v", err)
+	}
+
+	for _, node := range gitNodes {
+		exists, err := dbstore.Exists(node)
+		if exists {
+			t.Errorf("Non-existent node reported as existing: %s", node.ID())
+		}
+		if err != nil {
+			t.Errorf("Error returned from existence check: %v", err)
+		}
+	}
+
+	err = dbstore.UpdateFromInventoryStore(store)
+	if err != nil {
+		t.Errorf("Error updating dynamodb from gitstore: %v", err)
+	}
+
+	for _, node := range gitNodes {
+		exists, err := dbstore.Exists(node)
+		if !exists {
+			t.Errorf("Existing node reported as not existing: %s", node.ID())
+		}
+		if err != nil {
+			t.Errorf("Error returned from existence check: %v", err)
+		}
+	}
+
+}

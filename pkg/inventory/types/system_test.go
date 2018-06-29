@@ -73,3 +73,12 @@ func TestSystemID(t *testing.T) {
 		t.Fatalf("Wrong system ID returned: %s", sys.ID())
 	}
 }
+
+func TestSystemSetTimestamp(t *testing.T) {
+	s := &System{}
+	ts := time.Now()
+	s.SetTimestamp(ts)
+	if s.Timestamp() != ts.Unix() {
+		t.Errorf("Timestamp returned doesn't match the time set.")
+	}
+}

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
+
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -15,39 +17,84 @@ import (
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	if len(request.QueryStringParameters) < 1 {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("No system requested, please add query parameters"))
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	if systemID, ok := request.PathParameters["systemId"]; ok {
+		system, err := inv.GetSystemByID(systemID)
+		return server.GetObjectResponse(system, err)
+	}
+
+	return lambdautils.ErrBadRequest()
+}
+
+// PutHandler updates the specified system record
+func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	systemId, ok := request.PathParameters["systemId"]
+	if !ok {
+		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Updating all systems not allowed.")
+	}
+
+	// parse request body.  Should be a system
+	updatedSystem := &inventorytypes.System{}
+	err := json.Unmarshal([]byte(request.Body), updatedSystem)
+	if err != nil {
+		return lambdautils.ErrBadRequest("Body should contain a valid system.")
 	}
 
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
-	var systemErr error
-	var system *inventorytypes.System
-
-	if systemID, ok := request.QueryStringParameters["id"]; ok {
-		system, systemErr = inv.GetSystemByID(systemID)
-		if systemErr == nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusOK, map[string]string{}, system)
-		}
-	} else {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("invalid request, please check your parameters and try again"))
-	}
-
-	if systemErr == inventory.ErrObjectNotFound {
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, systemErr)
-	}
-
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+	return server.UpdateObject(inv, updatedSystem, systemId)
 }
 
-// Handler handles requests for nodes
+// PostHandler updates the specified system record
+func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+
+	if len(request.PathParameters) != 0 {
+		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Posting not allowed here.")
+	}
+
+	// parse request body.  Should be a system
+	newSystem := &inventorytypes.System{}
+	err := json.Unmarshal([]byte(request.Body), newSystem)
+	if err != nil {
+		return lambdautils.ErrBadRequest("Body should contain a valid system.")
+	}
+
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	return server.CreateObject(inv, newSystem)
+}
+
+// DeleteHandler updates the specified system record
+func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	systemId, ok := request.PathParameters["systemId"]
+	if !ok {
+		return lambdautils.ErrStringResponse(http.StatusMethodNotAllowed, "Deleting all systems not allowed.")
+	}
+	system := &inventorytypes.System{Name: systemId}
+
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	return server.DeleteObject(inv, system)
+}
+
+// Handler handles requests for systems
 func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	switch request.HTTPMethod {
 	case http.MethodGet:
 		return GetHandler(ctx, request)
+	case http.MethodPut:
+		return PutHandler(ctx, request)
+	case http.MethodPost:
+		return PostHandler(ctx, request)
+	case http.MethodDelete:
+		return DeleteHandler(ctx, request)
 	default:
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))
+		return lambdautils.ErrNotImplemented()
 	}
 }
 

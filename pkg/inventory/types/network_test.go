@@ -63,3 +63,12 @@ func TestNetworkUnmarshalYAML(t *testing.T) {
 	net := &Network{}
 	testUnmarshalYAML(t, net, expected, yamlString)
 }
+
+func TestNetworkSetTimestamp(t *testing.T) {
+	n := &Network{}
+	ts := time.Now()
+	n.SetTimestamp(ts)
+	if n.Timestamp() != ts.Unix() {
+		t.Errorf("Timestamp returned doesn't match the time set.")
+	}
+}

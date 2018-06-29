@@ -37,6 +37,24 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /node:
             get:
               x-amazon-apigateway-integration:
@@ -47,7 +65,26 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NodeLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /network:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /network/{networkId}:
             get:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -57,8 +94,54 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
           /system:
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+          /system/{systemId}:
             get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
@@ -200,6 +283,27 @@ Resources:
             Method: get
             RestApiId:
               Ref: SystemDataApi
+        UpdateNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        CreateNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteNodeEvent:
+          Type: Api
+          Properties:
+            Path: /node/{nodeId}
+            Method: delete
+            RestApiId:
+              Ref: SystemDataApi
         QueryNodesEvent:
           Type: Api
           Properties:
@@ -218,8 +322,29 @@ Resources:
         GetEvent:
           Type: Api
           Properties:
-            Path: /network
+            Path: /network/{networkId}
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        CreateEvent:
+          Type: Api
+          Properties:
+            Path: /network
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        UpdateEvent:
+          Type: Api
+          Properties:
+            Path: /network/{networkId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteEvent:
+          Type: Api
+          Properties:
+            Path: /network/{networkId}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
   SystemLookup:
@@ -233,8 +358,29 @@ Resources:
         GetEvent:
           Type: Api
           Properties:
-            Path: /system
+            Path: /system/{systemId}
             Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        CreateEvent:
+          Type: Api
+          Properties:
+            Path: /system
+            Method: post
+            RestApiId:
+              Ref: SystemDataApi
+        UpdateEvent:
+          Type: Api
+          Properties:
+            Path: /system/{systemId}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteEvent:
+          Type: Api
+          Properties:
+            Path: /system/{systemId}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
   NodeConfigLookup:

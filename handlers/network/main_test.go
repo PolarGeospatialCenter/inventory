@@ -6,18 +6,19 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/go-test/deep"
 )
 
-func TestGetHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	dbInstance, err := dynamodbtest.Run(ctx)
@@ -43,72 +44,118 @@ func TestGetHandler(t *testing.T) {
 	network.Metadata["testint"] = float64(5)
 	_, testsubnet, _ := net.ParseCIDR("10.0.0.0/24")
 	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Cidr: testsubnet}}
+	network.LastUpdated = time.Now()
 
-	err = inv.Update(network)
+	netJson, err := json.Marshal(network)
 	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
+		t.Errorf("unable to marshal network: %v", err)
 	}
 
-	type testCase struct {
-		context         context.Context
-		queryParameters map[string]string
-		ExpectedBody    interface{}
-		ExpectedStatus  int
+	updatedNetwork := *network
+	updatedNetwork.MTU = 9000
+	updatedNetJson, err := json.Marshal(updatedNetwork)
+	if err != nil {
+		t.Errorf("unable to marshal updated network: %v", err)
 	}
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
 
-	cases := []testCase{
-		testCase{handlerCtx, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
-		testCase{handlerCtx, map[string]string{"id": "testnetwork"}, network, http.StatusOK},
-		testCase{handlerCtx, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "No node requested, please add query parameters"}, http.StatusBadRequest},
+	cases := testutils.TestCases{
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup non-existent network",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Create network object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodPost,
+				Body:       string(netJson),
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: network,
+				ExpectedStatus:     http.StatusCreated,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Attempt to create existing object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodPost,
+				Body:       string(netJson),
+			},
+			TestResult: testutils.ExpectError(http.StatusConflict, "An object with that id already exists."),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get newly created network object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: network,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Update network object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodPut,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+				Body:           string(updatedNetJson),
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: updatedNetwork,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get updated network object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: updatedNetwork,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Delete network object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodDelete,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: "",
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup deleted object",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"networkId": "testnetwork"},
+			},
+			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Handle bad path parameters",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"badparam": "foo"},
+			},
+			TestResult: testutils.ExpectError(http.StatusBadRequest),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get list of nodes",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodGet,
+			},
+			TestResult: testutils.ExpectError(http.StatusBadRequest),
+		},
 	}
-
-	for _, c := range cases {
-		t.Logf("Testing query: %v", c.queryParameters)
-		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet})
-		if err != nil {
-			t.Errorf("error occurred while testing handler: %v", err)
-			continue
-		}
-
-		status := response.StatusCode
-		if status != c.ExpectedStatus {
-			t.Errorf("Expected status %d, got %d", c.ExpectedStatus, status)
-		}
-
-		switch c.ExpectedBody.(type) {
-		case lambdautils.ErrorResponse:
-			body := lambdautils.ErrorResponse{}
-			err = json.Unmarshal([]byte(response.Body), &body)
-			if err != nil {
-				t.Errorf("Unable to unmarshal error in response: %v", err)
-			}
-
-			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
-				t.Errorf("body doesn't match expected:")
-				for _, l := range diff {
-					t.Errorf(l)
-				}
-			}
-
-		case *inventorytypes.Network:
-			body := &inventorytypes.Network{}
-			err = json.Unmarshal([]byte(response.Body), body)
-			if err != nil {
-				t.Errorf("Unable to unmarshal network in response")
-			}
-
-			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
-				t.Errorf("body doesn't match expected:")
-				for _, l := range diff {
-					t.Errorf(l)
-				}
-			}
-		default:
-			t.Errorf("You've specified a return type that isn't implemented for testing.")
-		}
-	}
-
+	cases.RunTests(t, Handler)
 }

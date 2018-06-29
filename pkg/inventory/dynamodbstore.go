@@ -63,6 +63,10 @@ func (i *NodeMacIndexEntry) Timestamp() int64 {
 	return i.LastUpdated.Unix()
 }
 
+func (i *NodeMacIndexEntry) SetTimestamp(timestamp time.Time) {
+	i.LastUpdated = timestamp
+}
+
 type DynamoDBTableLookup interface {
 	LookupTable(interface{}) string
 	Tables() []string
@@ -172,8 +176,24 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	return nil
 }
 
-func (db *DynamoDBStore) Delete(interface{}) error {
-	return nil
+// Delete deletes the inventory object from dynamodb
+func (db *DynamoDBStore) Delete(obj InventoryObject) error {
+	objID, err := dynamodbattribute.Marshal(obj.ID())
+	if err != nil {
+		return fmt.Errorf("unable to marshal object id for deletion: %v", err)
+	}
+
+	table := db.tableMap.LookupTable(obj)
+	partitionKey, err := db.getPartitionKey(table)
+	if err != nil {
+		return fmt.Errorf("unable to determine partition key for requested delete object type (%T): %v", obj, err)
+	}
+	deleteItem := &dynamodb.DeleteItemInput{}
+	deleteItem.SetKey(map[string]*dynamodb.AttributeValue{partitionKey: objID})
+	deleteItem.SetTableName(table)
+
+	_, err = db.db.DeleteItem(deleteItem)
+	return err
 }
 
 func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
@@ -192,7 +212,6 @@ func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
 // getNewest returns the entry from the table with a partition id matching id and
 // the highest sort key (last_updated timestamp)
 func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
-	f := false
 	table := db.tableMap.LookupTable(out)
 	partitionKeyName, err := db.getPartitionKey(table)
 	if err != nil {
@@ -206,9 +225,9 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 
 	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
 	q := &dynamodb.QueryInput{
-		ScanIndexForward:          &f,
-		TableName:                 &table,
-		KeyConditionExpression:    &queryString,
+		ScanIndexForward:          aws.Bool(false),
+		TableName:                 aws.String(table),
+		KeyConditionExpression:    aws.String(queryString),
 		ExpressionAttributeValues: queryValues,
 	}
 
@@ -221,6 +240,42 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 		return ErrDynamoDBRecordNotFound{ID: id, Table: table}
 	}
 	err = dynamodbattribute.UnmarshalMap(results.Items[0], out)
+	return err
+}
+
+func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
+	table := db.tableMap.LookupTable(obj)
+	partitionKeyName, err := db.getPartitionKey(table)
+	if err != nil {
+		return false, err
+	}
+
+	queryValues, err := dynamodbattribute.MarshalMap(map[string]string{":partitionkeyval": obj.ID()})
+	if err != nil {
+		return false, err
+	}
+
+	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
+	q := &dynamodb.QueryInput{
+		ScanIndexForward:          aws.Bool(false),
+		TableName:                 aws.String(table),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
+	}
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return false, err
+	}
+
+	return len(results.Items) != 0, nil
+}
+
+func (db *DynamoDBStore) GetByID(id string, obj InventoryObject) error {
+	err := db.getNewest(id, obj)
+	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
+		return ErrObjectNotFound
+	}
 	return err
 }
 
@@ -244,10 +299,7 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
-	err := db.getNewest(id, node)
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		err = ErrObjectNotFound
-	}
+	err := db.GetByID(id, node)
 	return node, err
 }
 
@@ -265,11 +317,8 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
-	err := db.getNewest(id, network)
-
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		return nil, ErrObjectNotFound
-	} else if err != nil {
+	err := db.GetByID(id, network)
+	if err != nil {
 		return nil, err
 	}
 
@@ -281,12 +330,7 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
-	err := db.getNewest(id, system)
-
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		return nil, ErrObjectNotFound
-	}
-
+	err := db.GetByID(id, system)
 	return system, err
 }
 

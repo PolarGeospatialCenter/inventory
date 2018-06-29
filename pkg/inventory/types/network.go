@@ -22,3 +22,7 @@ func (n *Network) ID() string {
 func (n *Network) Timestamp() int64 {
 	return n.LastUpdated.Unix()
 }
+
+func (n *Network) SetTimestamp(timestamp time.Time) {
+	n.LastUpdated = timestamp
+}
