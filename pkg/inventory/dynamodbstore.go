@@ -262,6 +262,33 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	return err
 }
 
+func (db *DynamoDBStore) getAll(out interface{}) error {
+	table := db.tableMap.LookupTable(out)
+	in := &dynamodb.ScanInput{
+		TableName: aws.String(table),
+	}
+
+	outputElements := make([]map[string]*dynamodb.AttributeValue, 0, 0)
+	scanFn := func(results *dynamodb.ScanOutput, lastPage bool) bool {
+		for _, i := range results.Items {
+			outputElements = append(outputElements, i)
+		}
+		return false
+	}
+
+	err := db.db.ScanPages(in, scanFn)
+	if err != nil {
+		return fmt.Errorf("unable to scan pages from dynamodb table %s: %v", table, err)
+	}
+
+	err = dynamodbattribute.UnmarshalListOfMaps(outputElements, out)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
 	partitionKeyName, err := db.getPartitionKey(table)
@@ -316,6 +343,19 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 	return types.NewInventoryNode(node, db, db)
 }
 
+func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {
+	nodeList := make([]*types.Node, 0, 0)
+	err := db.getAll(&nodeList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all nodes: %v", err)
+	}
+	nodes := make(map[string]*types.Node)
+	for _, n := range nodeList {
+		nodes[n.ID()] = n
+	}
+	return nodes, nil
+}
+
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
 	err := db.GetByID(id, node)
@@ -334,6 +374,20 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 	return db.GetNodeByID(e.NodeID)
 }
 
+func (db *DynamoDBStore) GetNetworks() (map[string]*types.Network, error) {
+	networkList := make([]*types.Network, 0, 0)
+	err := db.getAll(&networkList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all networks: %v", err)
+	}
+	log.Printf("Network List returned: %v", networkList)
+	networks := make(map[string]*types.Network)
+	for _, n := range networkList {
+		networks[n.ID()] = n
+	}
+	return networks, nil
+}
+
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
 	err := db.GetByID(id, network)
@@ -345,6 +399,19 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 		network.Subnets = make([]*types.Subnet, 0)
 	}
 	return network, err
+}
+
+func (db *DynamoDBStore) GetSystems() (map[string]*types.System, error) {
+	systemList := make([]*types.System, 0, 0)
+	err := db.getAll(&systemList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all systems: %v", err)
+	}
+	systems := make(map[string]*types.System)
+	for _, s := range systemList {
+		systems[s.ID()] = s
+	}
+	return systems, nil
 }
 
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {

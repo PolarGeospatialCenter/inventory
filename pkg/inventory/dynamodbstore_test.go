@@ -308,3 +308,104 @@ func TestDynamoDBExists(t *testing.T) {
 	}
 
 }
+
+func TestDynamoDBGetAll(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	store, err := loadGitStore()
+	if err != nil {
+		t.Fatalf("Failed to load git store: %v", err)
+	}
+	store.Refresh()
+
+	gitNodes, _ := store.GetNodes()
+	numNodes := len(gitNodes)
+	if numNodes != 3 {
+		t.Errorf("Got %d nodes from test git store, expecting %d", numNodes, 3)
+	}
+
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
+	if err != nil {
+		t.Errorf("Error creating dynamo db store tables: %v", err)
+	}
+
+	err = dbstore.UpdateFromInventoryStore(store)
+	if err != nil {
+		t.Errorf("Error updating dynamodb from gitstore: %v", err)
+	}
+
+	gitNetworks, _ := store.GetNetworks()
+	dbNetworks, err := dbstore.GetNetworks()
+	if err != nil {
+		t.Errorf("Unable to get networks from dynamodb: %v", err)
+	}
+
+	if len(gitNetworks) != len(dbNetworks) {
+		t.Errorf("Number of Networks from repo not equal to the number retrieved from dynamodb: %d != %d", len(gitNetworks), len(dbNetworks))
+	}
+
+	for _, network := range gitNetworks {
+		retrieved := dbNetworks[network.ID()]
+		if network.Metadata == nil {
+			network.Metadata = retrieved.Metadata
+		}
+		if diff := deep.Equal(retrieved, network); len(diff) > 0 {
+			for _, d := range diff {
+				t.Error(d)
+			}
+		}
+	}
+
+	systems, _ := store.GetSystems()
+	dbSystems, err := dbstore.GetSystems()
+	if err != nil {
+		t.Errorf("Unable to get systems from dynamodb: %v", err)
+	}
+
+	if len(systems) != len(dbSystems) {
+		t.Errorf("Number of Systems from repo not equal to the number retrieved from dynamodb: %d != %d", len(systems), len(dbSystems))
+	}
+
+	for _, system := range systems {
+		retrieved := dbSystems[system.ID()]
+		if system.Metadata == nil {
+			system.Metadata = retrieved.Metadata
+		}
+		if diff := deep.Equal(retrieved, system); len(diff) > 0 {
+			for _, d := range diff {
+				t.Error(d)
+			}
+		}
+	}
+
+	nodes, _ := store.GetNodes()
+	dbNodes, err := dbstore.GetNodes()
+	if err != nil {
+		t.Errorf("Unable to get nodes from dynamodb: %v", err)
+	}
+
+	if len(nodes) != len(dbNodes) {
+		t.Errorf("Number of Nodes from repo not equal to the number retrieved from dynamodb: %d != %d", len(nodes), len(dbNodes))
+	}
+
+	for _, node := range nodes {
+		retrieved := dbNodes[node.ID()]
+		if node.Metadata == nil {
+			node.Metadata = retrieved.Metadata
+		}
+		if diff := deep.Equal(retrieved, node); len(diff) > 0 {
+			for _, d := range diff {
+				t.Error(d)
+			}
+		}
+	}
+}
