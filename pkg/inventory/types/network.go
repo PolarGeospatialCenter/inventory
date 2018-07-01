@@ -1,11 +1,13 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type Network struct {
 	Name        string
 	MTU         uint
-	Subnets     []*Subnet
+	Subnets     SubnetList
 	Domain      string
 	Metadata    Metadata
 	LastUpdated time.Time
