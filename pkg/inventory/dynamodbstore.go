@@ -22,12 +22,31 @@ type RawInventoryStore interface {
 // DynamoDBStoreTableMap maps data types to the appropriate table within DynamoDB
 type DynamoDBStoreTableMap map[reflect.Type]string
 
+// LookupTable finds the table name associated with the type of the interface.
 func (m DynamoDBStoreTableMap) LookupTable(t interface{}) string {
-	table, ok := m[reflect.TypeOf(t)]
-	if !ok {
+	var typ reflect.Type
+	typ = reflect.TypeOf(t)
+
+	// Check for direct match
+	if table, ok := m[typ]; ok {
+		return table
+	}
+
+	// Recurse to element/indirect type if no match is found, default to empty table name
+	switch typ.Kind() {
+	case reflect.Ptr:
+		fallthrough
+	case reflect.Array:
+		fallthrough
+	case reflect.Chan:
+		fallthrough
+	case reflect.Map:
+		fallthrough
+	case reflect.Slice:
+		return m.LookupTable(reflect.Indirect(reflect.New(reflect.TypeOf(t).Elem())).Interface())
+	default:
 		return ""
 	}
-	return table
 }
 
 func (m DynamoDBStoreTableMap) Tables() []string {
@@ -42,10 +61,10 @@ func (m DynamoDBStoreTableMap) Tables() []string {
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		reflect.TypeOf(&types.Node{}):        "inventory_nodes",
-		reflect.TypeOf(&types.Network{}):     "inventory_networks",
-		reflect.TypeOf(&types.System{}):      "inventory_systems",
-		reflect.TypeOf(&NodeMacIndexEntry{}): "inventory_node_mac_lookup",
+		reflect.TypeOf(types.Node{}):        "inventory_nodes",
+		reflect.TypeOf(types.Network{}):     "inventory_networks",
+		reflect.TypeOf(types.System{}):      "inventory_systems",
+		reflect.TypeOf(NodeMacIndexEntry{}): "inventory_node_mac_lookup",
 	}
 )
 

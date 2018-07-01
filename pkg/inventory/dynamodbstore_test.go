@@ -30,6 +30,22 @@ func loadGitStore() (*GitStore, error) {
 	return NewGitStore(repo, &git.FetchOptions{}, "master"), nil
 }
 
+func TestTableMap(t *testing.T) {
+	tableMap := defatultDynamoDBTables
+	if table := tableMap.LookupTable(&types.Node{}); table != "inventory_nodes" {
+		t.Errorf("Got wrong table name for a node: '%s'", table)
+	}
+
+	if table := tableMap.LookupTable([]*types.Node{}); table != "inventory_nodes" {
+		t.Errorf("Got wrong table name for a slice of nodes: '%s'", table)
+	}
+
+	if table := tableMap.LookupTable(map[string]string{}); table != "" {
+		t.Errorf("Got wrong table name for a map[string]string: '%s'", table)
+	}
+
+}
+
 func TestDynamoDBCreateTable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
