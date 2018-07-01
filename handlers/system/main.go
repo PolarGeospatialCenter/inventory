@@ -25,6 +25,17 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return server.GetObjectResponse(system, err)
 	}
 
+	if len(request.PathParameters) == 0 && len(request.QueryStringParameters) == 0 {
+		systemMap, err := inv.GetSystems()
+		systems := make([]*inventorytypes.System, 0, len(systemMap))
+		if err == nil {
+			for _, n := range systemMap {
+				systems = append(systems, n)
+			}
+		}
+		return server.GetObjectResponse(systems, err)
+	}
+
 	return lambdautils.ErrBadRequest()
 }
 

@@ -43,6 +43,7 @@ func TestHandler(t *testing.T) {
 			IPXEUrl: "http://test.com/ipxe",
 		},
 	}
+	system.Metadata = inventorytypes.Metadata{}
 	system.LastUpdated = time.Now()
 
 	systemJson, err := json.Marshal(system)
@@ -114,6 +115,14 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name:    "Attempt to get all systems",
+			Request: events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.System{&modifiedSystem},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
 			Name: "Delete test system object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
@@ -133,9 +142,12 @@ func TestHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
-			Name:       "Attempt to get all systems",
-			Request:    events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
-			TestResult: testutils.ExpectError(http.StatusBadRequest),
+			Name:    "Attempt to get all systems",
+			Request: events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.System{},
+				ExpectedStatus:     http.StatusOK,
+			},
 		},
 	}
 	cases.RunTests(t, Handler)
