@@ -3,7 +3,6 @@ package inventory
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"strings"
 	"time"
 
@@ -51,27 +50,27 @@ func (g *GitStore) refString() gitplumbing.ReferenceName {
 }
 
 func (g *GitStore) Fetch(options *git.FetchOptions) error {
-	log.Println("Fetching updates")
+	// log.Println("Fetching updates")
 	err := g.repo.Fetch(options)
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
-	log.Println("Wiping cache")
+	// log.Println("Wiping cache")
 	g.cache = NewMemoryStore()
 
-	log.Println("Getting head of branch")
+	// log.Println("Getting head of branch")
 	head, err := g.repo.Reference(g.refString(), true)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Get commit associated with head")
+	// log.Println("Get commit associated with head")
 	commit, err := g.repo.CommitObject(head.Hash())
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Get tree object for: %s", commit)
+	// log.Printf("Get tree object for: %s", commit)
 	tree, err := g.repo.TreeObject(commit.TreeHash)
 	if err != nil {
 		return err
@@ -82,11 +81,11 @@ func (g *GitStore) Fetch(options *git.FetchOptions) error {
 		return err
 	}
 
-	log.Println("Walk tree")
+	// log.Println("Walk tree")
 	err = tree.Files().ForEach(func(f *gitobject.File) error {
 		return g.LoadObject(f, updateTimes[f.Name])
 	})
-	log.Println("Update finished")
+	// log.Println("Update finished")
 	return err
 }
 
@@ -112,7 +111,7 @@ func (g *GitStore) fileUpdateTimes() (FileUpdateTimes, error) {
 	commits := gitobject.NewCommitPostorderIter(headCommit, nil)
 
 	err = commits.ForEach(func(commit *gitobject.Commit) error {
-		log.Print(commit)
+		// log.Print(commit)
 
 		cTime := commit.Author.When
 		cTree, err := commit.Tree()
@@ -125,14 +124,14 @@ func (g *GitStore) fileUpdateTimes() (FileUpdateTimes, error) {
 			return err
 		}
 
-		log.Printf("%d", len(changes))
+		// log.Printf("%d", len(changes))
 		for _, change := range changes {
 			if updateTimes.Update(change.To.Name, pTime) {
-				log.Printf("Set last update time of %s to %s", change.To.Name, pTime)
+				// log.Printf("Set last update time of %s to %s", change.To.Name, pTime)
 			}
 
 			if updateTimes.Update(change.From.Name, cTime) {
-				log.Printf("Set last update time of %s to %s", change.From.Name, cTime)
+				// log.Printf("Set last update time of %s to %s", change.From.Name, cTime)
 			}
 
 		}
@@ -152,9 +151,9 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 		return err
 	}
 
-	log.Printf("Git path: %s", f.Name)
+	// log.Printf("Git path: %s", f.Name)
 	t := strings.Split(f.Name, "/")[0]
-	log.Printf("Looking up object type for: %s", t)
+	// log.Printf("Looking up object type for: %s", t)
 	switch t {
 	case "node":
 		obj := types.NewNode()
@@ -163,7 +162,7 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 			return err
 		}
 		obj.LastUpdated = updateTime
-		log.Printf("%v", obj)
+		// log.Printf("%v", obj)
 		return g.cache.Update(obj)
 	case "system":
 		obj := types.NewSystem()
@@ -172,7 +171,7 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 			return err
 		}
 		obj.LastUpdated = updateTime
-		log.Printf("%s", obj)
+		// log.Printf("%s", obj)
 		return g.cache.Update(obj)
 	case "network":
 		obj := types.NewNetwork()
@@ -181,10 +180,10 @@ func (g *GitStore) LoadObject(f *gitobject.File, updateTime time.Time) error {
 			return err
 		}
 		obj.LastUpdated = updateTime
-		log.Printf("%v", obj)
+		// log.Printf("%v", obj)
 		return g.cache.Update(obj)
 	default:
-		log.Printf("No matching object type found")
+		// log.Printf("No matching object type found")
 		return nil
 	}
 

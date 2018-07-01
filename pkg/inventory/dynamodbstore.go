@@ -158,7 +158,7 @@ func (db *DynamoDBStore) Refresh() error {
 }
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
-	log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
+	// log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
@@ -187,7 +187,7 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	invObj := obj.(InventoryObject)
 	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
 
-	log.Print(putItem.TableName)
+	// log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
 	if err != nil {
 		return err
