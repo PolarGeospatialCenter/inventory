@@ -325,6 +325,23 @@ func (db *DynamoDBStore) GetByID(id string, obj InventoryObject) error {
 	return err
 }
 
+func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, error) {
+	nodes, err := db.GetNodes()
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup nodes: %v", err)
+	}
+
+	out := make(map[string]*types.InventoryNode)
+	for _, n := range nodes {
+		iNode, err := types.NewInventoryNode(n, db, db)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile inventory node: %v", err)
+		}
+		out[n.ID()] = iNode
+	}
+	return out, nil
+}
+
 func (db *DynamoDBStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
 	node, err := db.GetNodeByID(id)
 	if err != nil {
