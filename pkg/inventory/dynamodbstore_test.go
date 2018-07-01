@@ -118,7 +118,9 @@ func TestDynamoDBUpdate(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to get network from dynamodb: %v", err)
 		}
-
+		if network.Metadata == nil {
+			network.Metadata = retrieved.Metadata
+		}
 		if diff := deep.Equal(network, retrieved); len(diff) > 0 {
 			for _, d := range diff {
 				t.Error(d)
@@ -133,7 +135,9 @@ func TestDynamoDBUpdate(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to get system from dynamodb: %v", err)
 		}
-
+		if system.Metadata == nil {
+			system.Metadata = retrieved.Metadata
+		}
 		if diff := deep.Equal(system, retrieved); len(diff) > 0 {
 			for _, d := range diff {
 				t.Error(d)
@@ -147,7 +151,9 @@ func TestDynamoDBUpdate(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unable to get node from dynamodb: %v", err)
 		}
-
+		if node.Metadata == nil {
+			node.Metadata = retrieved.Metadata
+		}
 		if diff := deep.Equal(node, retrieved); len(diff) > 0 {
 			for _, d := range diff {
 				t.Error(d)

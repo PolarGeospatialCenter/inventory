@@ -7,7 +7,7 @@ type Network struct {
 	MTU         uint
 	Subnets     []*Subnet
 	Domain      string
-	Metadata    map[string]interface{}
+	Metadata    Metadata
 	LastUpdated time.Time
 }
 

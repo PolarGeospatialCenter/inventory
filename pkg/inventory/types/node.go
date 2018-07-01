@@ -14,7 +14,7 @@ type Node struct {
 	Role            string
 	Environment     string
 	System          string
-	Metadata        map[string]interface{}
+	Metadata        Metadata
 	LastUpdated     time.Time
 }
 
