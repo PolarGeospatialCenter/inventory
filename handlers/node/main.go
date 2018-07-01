@@ -26,7 +26,14 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	}
 
 	if len(request.QueryStringParameters) == 0 {
-		return lambdautils.ErrNotImplemented("Querying all nodes is not implemented.  Please provide a filter.")
+		nodeMap, err := inv.GetNodes()
+		nodes := make([]*inventorytypes.Node, 0, len(nodeMap))
+		if err == nil {
+			for _, n := range nodeMap {
+				nodes = append(nodes, n)
+			}
+		}
+		return server.GetObjectResponse(nodes, err)
 	}
 
 	if macString, ok := request.QueryStringParameters["mac"]; ok {

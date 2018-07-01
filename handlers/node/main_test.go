@@ -25,6 +25,7 @@ func testNode() *inventorytypes.Node {
 	node.Networks = map[string]*inventorytypes.NICInfo{
 		"testnet": &inventorytypes.NICInfo{MAC: testMac},
 	}
+	node.Metadata = inventorytypes.Metadata{}
 	node.LastUpdated = time.Now()
 	return node
 }
@@ -133,8 +134,12 @@ func TestGetHandler(t *testing.T) {
 			TestResult: testutils.ExpectError(http.StatusBadRequest),
 		},
 		testutils.TestCase{Ctx: handlerCtx,
-			Request:    events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
-			TestResult: testutils.ExpectError(http.StatusNotImplemented, "Querying all nodes is not implemented.  Please provide a filter."),
+			Name:    "Get all nodes",
+			Request: events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.Node{node},
+				ExpectedStatus:     http.StatusOK,
+			},
 		},
 	}
 	cases.RunTests(t, Handler)
