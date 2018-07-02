@@ -5,6 +5,9 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/go-test/deep"
 )
 
 func getTestNetwork() (*Network, string, string) {
@@ -70,5 +73,51 @@ func TestNetworkSetTimestamp(t *testing.T) {
 	n.SetTimestamp(ts)
 	if n.Timestamp() != ts.Unix() {
 		t.Errorf("Timestamp returned doesn't match the time set.")
+	}
+}
+
+func TestDynamoDBRoundTrip(t *testing.T) {
+	expected, _, _ := getTestNetwork()
+
+	dynamodbValue, err := dynamodbattribute.Marshal(expected)
+	if err != nil {
+		t.Errorf("unable to marshal network to dynamodb attribute: %v", err)
+	}
+
+	unmarshaledNetwork := &Network{}
+	err = dynamodbattribute.Unmarshal(dynamodbValue, unmarshaledNetwork)
+	if err != nil {
+		t.Errorf("unable to unmarshal network from dynamodb attribute: %v", err)
+	}
+
+	if diff := deep.Equal(unmarshaledNetwork, expected); len(diff) > 0 {
+		t.Error("Unmarshaled object not equal to expected:")
+		for _, l := range diff {
+			t.Error(l)
+		}
+	}
+}
+
+func TestDynamoDBRoundTripNoSubnets(t *testing.T) {
+	expected, _, _ := getTestNetwork()
+
+	expected.Subnets = []*Subnet{}
+
+	dynamodbValue, err := dynamodbattribute.Marshal(expected)
+	if err != nil {
+		t.Errorf("unable to marshal network to dynamodb attribute: %v", err)
+	}
+
+	unmarshaledNetwork := &Network{}
+	err = dynamodbattribute.Unmarshal(dynamodbValue, unmarshaledNetwork)
+	if err != nil {
+		t.Errorf("unable to unmarshal network from dynamodb attribute: %v", err)
+	}
+
+	if diff := deep.Equal(unmarshaledNetwork, expected); len(diff) > 0 {
+		t.Error("Unmarshaled object not equal to expected:")
+		for _, l := range diff {
+			t.Error(l)
+		}
 	}
 }

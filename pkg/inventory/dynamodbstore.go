@@ -22,12 +22,31 @@ type RawInventoryStore interface {
 // DynamoDBStoreTableMap maps data types to the appropriate table within DynamoDB
 type DynamoDBStoreTableMap map[reflect.Type]string
 
+// LookupTable finds the table name associated with the type of the interface.
 func (m DynamoDBStoreTableMap) LookupTable(t interface{}) string {
-	table, ok := m[reflect.TypeOf(t)]
-	if !ok {
+	var typ reflect.Type
+	typ = reflect.TypeOf(t)
+
+	// Check for direct match
+	if table, ok := m[typ]; ok {
+		return table
+	}
+
+	// Recurse to element/indirect type if no match is found, default to empty table name
+	switch typ.Kind() {
+	case reflect.Ptr:
+		fallthrough
+	case reflect.Array:
+		fallthrough
+	case reflect.Chan:
+		fallthrough
+	case reflect.Map:
+		fallthrough
+	case reflect.Slice:
+		return m.LookupTable(reflect.Indirect(reflect.New(reflect.TypeOf(t).Elem())).Interface())
+	default:
 		return ""
 	}
-	return table
 }
 
 func (m DynamoDBStoreTableMap) Tables() []string {
@@ -42,10 +61,10 @@ func (m DynamoDBStoreTableMap) Tables() []string {
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		reflect.TypeOf(&types.Node{}):        "inventory_nodes",
-		reflect.TypeOf(&types.Network{}):     "inventory_networks",
-		reflect.TypeOf(&types.System{}):      "inventory_systems",
-		reflect.TypeOf(&NodeMacIndexEntry{}): "inventory_node_mac_lookup",
+		reflect.TypeOf(types.Node{}):        "inventory_nodes",
+		reflect.TypeOf(types.Network{}):     "inventory_networks",
+		reflect.TypeOf(types.System{}):      "inventory_systems",
+		reflect.TypeOf(NodeMacIndexEntry{}): "inventory_node_mac_lookup",
 	}
 )
 
@@ -139,7 +158,7 @@ func (db *DynamoDBStore) Refresh() error {
 }
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
-	log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
+	// log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
@@ -168,7 +187,7 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	invObj := obj.(InventoryObject)
 	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
 
-	log.Print(putItem.TableName)
+	// log.Print(putItem.TableName)
 	_, err := db.db.PutItem(putItem)
 	if err != nil {
 		return err
@@ -243,6 +262,33 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	return err
 }
 
+func (db *DynamoDBStore) getAll(out interface{}) error {
+	table := db.tableMap.LookupTable(out)
+	in := &dynamodb.ScanInput{
+		TableName: aws.String(table),
+	}
+
+	outputElements := make([]map[string]*dynamodb.AttributeValue, 0, 0)
+	scanFn := func(results *dynamodb.ScanOutput, lastPage bool) bool {
+		for _, i := range results.Items {
+			outputElements = append(outputElements, i)
+		}
+		return false
+	}
+
+	err := db.db.ScanPages(in, scanFn)
+	if err != nil {
+		return fmt.Errorf("unable to scan pages from dynamodb table %s: %v", table, err)
+	}
+
+	err = dynamodbattribute.UnmarshalListOfMaps(outputElements, out)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
 	partitionKeyName, err := db.getPartitionKey(table)
@@ -279,6 +325,23 @@ func (db *DynamoDBStore) GetByID(id string, obj InventoryObject) error {
 	return err
 }
 
+func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, error) {
+	nodes, err := db.GetNodes()
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup nodes: %v", err)
+	}
+
+	out := make(map[string]*types.InventoryNode)
+	for _, n := range nodes {
+		iNode, err := types.NewInventoryNode(n, db, db)
+		if err != nil {
+			return nil, fmt.Errorf("unable to compile inventory node: %v", err)
+		}
+		out[n.ID()] = iNode
+	}
+	return out, nil
+}
+
 func (db *DynamoDBStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
 	node, err := db.GetNodeByID(id)
 	if err != nil {
@@ -295,6 +358,19 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 	}
 
 	return types.NewInventoryNode(node, db, db)
+}
+
+func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {
+	nodeList := make([]*types.Node, 0, 0)
+	err := db.getAll(&nodeList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all nodes: %v", err)
+	}
+	nodes := make(map[string]*types.Node)
+	for _, n := range nodeList {
+		nodes[n.ID()] = n
+	}
+	return nodes, nil
 }
 
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
@@ -315,6 +391,20 @@ func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error)
 	return db.GetNodeByID(e.NodeID)
 }
 
+func (db *DynamoDBStore) GetNetworks() (map[string]*types.Network, error) {
+	networkList := make([]*types.Network, 0, 0)
+	err := db.getAll(&networkList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all networks: %v", err)
+	}
+	log.Printf("Network List returned: %v", networkList)
+	networks := make(map[string]*types.Network)
+	for _, n := range networkList {
+		networks[n.ID()] = n
+	}
+	return networks, nil
+}
+
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
 	err := db.GetByID(id, network)
@@ -326,6 +416,19 @@ func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 		network.Subnets = make([]*types.Subnet, 0)
 	}
 	return network, err
+}
+
+func (db *DynamoDBStore) GetSystems() (map[string]*types.System, error) {
+	systemList := make([]*types.System, 0, 0)
+	err := db.getAll(&systemList)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all systems: %v", err)
+	}
+	systems := make(map[string]*types.System)
+	for _, s := range systemList {
+		systems[s.ID()] = s
+	}
+	return systems, nil
 }
 
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {

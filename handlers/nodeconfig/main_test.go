@@ -2,19 +2,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"net/http"
 	"testing"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/go-test/deep"
 )
 
 func TestGetHandler(t *testing.T) {
@@ -40,6 +39,7 @@ func TestGetHandler(t *testing.T) {
 	node.System = "tsts"
 	node.Environment = "env"
 	node.Role = "Role1"
+	node.Metadata = inventorytypes.Metadata{}
 	node.Networks = map[string]*inventorytypes.NICInfo{
 		"testnetwork": &inventorytypes.NICInfo{MAC: testMac},
 	}
@@ -76,18 +76,11 @@ func TestGetHandler(t *testing.T) {
 			},
 		},
 	}
+	system.Metadata = inventorytypes.Metadata{}
 
 	err = inv.Update(system)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)
-	}
-
-	type testCase struct {
-		context         context.Context
-		pathParameters  map[string]string
-		queryParameters map[string]string
-		ExpectedBody    interface{}
-		ExpectedStatus  int
 	}
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
@@ -96,75 +89,75 @@ func TestGetHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to build inventory node: %v", err)
 	}
-	cases := []testCase{
-		testCase{handlerCtx, map[string]string{}, map[string]string{"id": "foo"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
-		testCase{handlerCtx, map[string]string{"nodeId": "testnode"}, map[string]string{}, inventoryNode, http.StatusOK},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"id": "testnode"}, []*inventorytypes.InventoryNode{inventoryNode}, http.StatusOK},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": "01:02:03:04:05:06"}, lambdautils.ErrorResponse{Status: "Not Found", ErrorMessage: "Object not found"}, http.StatusNotFound},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": testMac.String()}, []*inventorytypes.InventoryNode{inventoryNode}, http.StatusOK},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": testMac.String(), "badparam": "baz"}, []*inventorytypes.InventoryNode{inventoryNode}, http.StatusOK},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"mac": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "address foo: invalid MAC address"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, map[string]string{"badparam": "foo"}, lambdautils.ErrorResponse{Status: "Bad Request", ErrorMessage: "invalid request, please check your parameters and try again"}, http.StatusBadRequest},
-		testCase{handlerCtx, map[string]string{}, map[string]string{}, lambdautils.ErrorResponse{Status: "Not Implemented", ErrorMessage: "Querying all nodes is not implemented.  Please provide a filter."}, http.StatusNotImplemented},
+
+	cases := testutils.TestCases{
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup non-existent node",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:            http.MethodGet,
+				QueryStringParameters: map[string]string{"id": "foo"},
+			},
+			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup test node using path parameter",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"nodeId": "testnode"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: inventoryNode,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup test node by id query",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:            http.MethodGet,
+				QueryStringParameters: map[string]string{"id": "testnode"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.InventoryNode{inventoryNode},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup non-existent node by mac",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:            http.MethodGet,
+				QueryStringParameters: map[string]string{"mac": "01:02:03:04:05:06"},
+			},
+			TestResult: testutils.ExpectError(http.StatusNotFound, "Object not found"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Lookup test node by mac",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:            http.MethodGet,
+				QueryStringParameters: map[string]string{"mac": testMac.String()},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.InventoryNode{inventoryNode},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Test mac input validation",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:            http.MethodGet,
+				QueryStringParameters: map[string]string{"mac": "foo"},
+			},
+			TestResult: testutils.ExpectError(http.StatusBadRequest, "address foo: invalid MAC address"),
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get all nodes",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodGet,
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.InventoryNode{inventoryNode},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
 	}
-
-	for _, c := range cases {
-		t.Logf("Testing query: %v", c.queryParameters)
-		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{QueryStringParameters: c.queryParameters, HTTPMethod: http.MethodGet, PathParameters: c.pathParameters})
-		if err != nil {
-			t.Errorf("error occurred while testing handler: %v", err)
-			continue
-		}
-
-		status := response.StatusCode
-		if status != c.ExpectedStatus {
-			t.Errorf("Expected status %d, got %d", c.ExpectedStatus, status)
-		}
-
-		switch c.ExpectedBody.(type) {
-		case lambdautils.ErrorResponse:
-			body := lambdautils.ErrorResponse{}
-			err = json.Unmarshal([]byte(response.Body), &body)
-			if err != nil {
-				t.Errorf("Unable to unmarshal error in response: %v", err)
-			}
-
-			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
-				t.Errorf("body doesn't match expected:")
-				for _, l := range diff {
-					t.Errorf(l)
-				}
-			}
-
-		case *inventorytypes.InventoryNode:
-			body := &inventorytypes.InventoryNode{}
-			err = json.Unmarshal([]byte(response.Body), body)
-			if err != nil {
-				t.Errorf("Unable to unmarshal node in response")
-			}
-
-			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
-				t.Errorf("body doesn't match expected:")
-				for _, l := range diff {
-					t.Errorf(l)
-				}
-			}
-		case []*inventorytypes.InventoryNode:
-			body := []*inventorytypes.InventoryNode{}
-			err = json.Unmarshal([]byte(response.Body), &body)
-			if err != nil {
-				t.Errorf("Unable to unmarshal node in response")
-			}
-
-			if diff := deep.Equal(body, c.ExpectedBody); len(diff) > 0 {
-				t.Errorf("body doesn't match expected:")
-				for _, l := range diff {
-					t.Errorf(l)
-				}
-			}
-		default:
-			t.Errorf("You've specified a return type that isn't implemented for testing.")
-		}
-	}
-
+	cases.RunTests(t, Handler)
 }

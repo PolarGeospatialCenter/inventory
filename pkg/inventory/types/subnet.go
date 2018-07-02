@@ -3,7 +3,12 @@ package types
 import (
 	"encoding/json"
 	"net"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
+
+type SubnetList []*Subnet
 
 // Subnet stores information about an IP subnet
 type Subnet struct {
@@ -67,4 +72,23 @@ func (s *Subnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s.AllocationMethod = v.AllocationMethod
 	s.Cidr = cidr
 	return err
+}
+
+func (n *SubnetList) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	if av.L != nil {
+		l := make(SubnetList, 0, len(av.L))
+		for _, item := range av.L {
+			subnet := &Subnet{}
+			err := dynamodbattribute.Unmarshal(item, subnet)
+			if err != nil {
+				return err
+			}
+			l = append(l, subnet)
+		}
+		*n = l
+		return nil
+	} else if av.NULL != nil && *av.NULL {
+		*n = SubnetList{}
+	}
+	return nil
 }

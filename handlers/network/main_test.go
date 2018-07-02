@@ -123,6 +123,16 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get list of nodes",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod: http.MethodGet,
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.Network{&updatedNetwork},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
 			Name: "Delete network object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodDelete,
@@ -154,7 +164,10 @@ func TestHandler(t *testing.T) {
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodGet,
 			},
-			TestResult: testutils.ExpectError(http.StatusBadRequest),
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: []*inventorytypes.Network{},
+				ExpectedStatus:     http.StatusOK,
+			},
 		},
 	}
 	cases.RunTests(t, Handler)

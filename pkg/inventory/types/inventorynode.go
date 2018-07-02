@@ -47,7 +47,7 @@ type InventoryNode struct {
 	ChassisSubIndex string
 	System          *System
 	Environment     *Environment
-	Metadata        map[string]interface{}
+	Metadata        Metadata
 	LastUpdated     time.Time
 }
 

@@ -7,7 +7,7 @@ type System struct {
 	ShortName    string
 	Environments map[string]*Environment
 	Roles        []string
-	Metadata     map[string]interface{}
+	Metadata     Metadata
 	LastUpdated  time.Time
 }
 

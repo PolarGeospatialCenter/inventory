@@ -16,11 +16,23 @@ import (
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
 	if networkID, ok := request.PathParameters["networkId"]; ok {
-		db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-		inv := inventory.NewDynamoDBStore(db, nil)
 		network, err := inv.GetNetworkByID(networkID)
 		return server.GetObjectResponse(network, err)
+	}
+
+	if len(request.PathParameters) == 0 && len(request.QueryStringParameters) == 0 {
+		networkMap, err := inv.GetNetworks()
+		networks := make([]*inventorytypes.Network, 0, len(networkMap))
+		if err == nil {
+			for _, n := range networkMap {
+				networks = append(networks, n)
+			}
+		}
+		return server.GetObjectResponse(networks, err)
 	}
 
 	return lambdautils.ErrBadRequest()
