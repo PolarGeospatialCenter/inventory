@@ -331,9 +331,19 @@ func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, e
 		return nil, fmt.Errorf("unable to lookup nodes: %v", err)
 	}
 
+	networks, err := db.GetNetworks()
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup networks: %v", err)
+	}
+
+	systems, err := db.GetSystems()
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup systems: %v", err)
+	}
+
 	out := make(map[string]*types.InventoryNode)
 	for _, n := range nodes {
-		iNode, err := types.NewInventoryNode(n, db, db)
+		iNode, err := types.NewInventoryNode(n, types.NetworkMap(networks), types.SystemMap(systems))
 		if err != nil {
 			return nil, fmt.Errorf("unable to compile inventory node: %v", err)
 		}
