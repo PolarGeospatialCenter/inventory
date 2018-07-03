@@ -75,6 +75,15 @@ Resources:
               security:
                 - sigv4: []
           /network:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${NetworkLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
             post:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -113,6 +122,15 @@ Resources:
               security:
                 - sigv4: []
           /system:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SystemLookup.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
             post:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -326,6 +344,13 @@ Resources:
             Method: get
             RestApiId:
               Ref: SystemDataApi
+        ListEvent:
+          Type: Api
+          Properties:
+            Path: /network
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
         CreateEvent:
           Type: Api
           Properties:
@@ -359,6 +384,13 @@ Resources:
           Type: Api
           Properties:
             Path: /system/{systemId}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        ListEvent:
+          Type: Api
+          Properties:
+            Path: /system
             Method: get
             RestApiId:
               Ref: SystemDataApi
