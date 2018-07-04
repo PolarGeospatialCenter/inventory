@@ -12,9 +12,9 @@ func TestNodeGetAll(t *testing.T) {
 	gock.DisableNetworking()
 	defer gock.EnableNetworking()
 	defer gock.Off()
-	testBaseUrl, _ := url.Parse("https://inventory.api.local/v0")
+	testBaseUrl, _ := url.Parse("https://inventory.api.local/v0/")
 
-	gock.New(testBaseUrl.String()).Get("/node").Reply(http.StatusOK).BodyString(`[{"InventoryID": "test-000"}]`)
+	gock.New(testBaseUrl.String()).Get("node").Reply(http.StatusOK).BodyString(`[{"InventoryID": "test-000"}]`)
 
 	nodes, err := NewInventoryApi(testBaseUrl).Node().GetAll()
 	if err != nil {
