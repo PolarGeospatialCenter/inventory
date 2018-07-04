@@ -10,7 +10,7 @@
 [[projects]]
   branch = "master"
   name = "github.com/PolarGeospatialCenter/dockertest"
-  packages = ["pkg/consul","pkg/docker","pkg/dynamodb"]
+  packages = ["pkg/docker","pkg/dynamodb"]
   revision = "398dfb5b2194221bfe47349ec296e78abda13b3e"
 
 [[projects]]
@@ -49,6 +49,12 @@
   version = "v0.3.2"
 
 [[projects]]
+  name = "github.com/go-resty/resty"
+  packages = ["."]
+  revision = "fc3ad735b5565cada42d34bc298573fd3fe5adc6"
+  version = "v1.6"
+
+[[projects]]
   name = "github.com/go-test/deep"
   packages = ["."]
   revision = "6592d9cc0a499ad2d5f574fde80a2b5c5cc3b4f5"
@@ -69,7 +75,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp","proxy"]
+  packages = ["context","context/ctxhttp","idna","proxy","publicsuffix"]
   revision = "b68f30494add4df6bd8ef5e82803f308e7f7c59c"
 
 [[projects]]
@@ -77,6 +83,18 @@
   name = "golang.org/x/sys"
   packages = ["windows"]
   revision = "378d26f46672a356c46195c28f61bdb4c0a781dd"
+
+[[projects]]
+  name = "golang.org/x/text"
+  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
+  version = "v0.3.0"
+
+[[projects]]
+  name = "gopkg.in/h2non/gock.v1"
+  packages = ["."]
+  revision = "4692cba4394f79372bfe85996501ad43db9d82e0"
+  version = "v1.0.9"
 
 [[projects]]
   name = "gopkg.in/yaml.v2"
@@ -87,6 +105,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "716905372b65d779575dbe60539a5f9a4da37a2557eb5c2b71523d8e979db65a"
+  inputs-digest = "2fef8e86a297cea4acd49cb583752c1e05c15a02a29af8f3a44cd13a2a08d970"
   solver-name = "gps-cdcl"
   solver-version = 1
