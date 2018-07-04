@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/client"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/spf13/viper"
 )
 
@@ -20,11 +23,9 @@ type AnsibleGroupList map[string]*AnsibleGroup
 func (l *AnsibleGroupList) Get(groupname string) *AnsibleGroup {
 	group, ok := (*l)[groupname]
 	if !ok {
-		log.Printf("Group doesn't exist yet, creating: %s", groupname)
 		group = &AnsibleGroup{Hosts: []string{}, Vars: make(map[string]interface{})}
 		(*l)[groupname] = group
 	}
-	log.Print(group)
 	return group
 }
 
@@ -37,15 +38,21 @@ func main() {
 	cfg := viper.New()
 	cfg.AddConfigPath(".")
 	cfg.SetConfigName("pgc-inventory")
+	cfg.SetDefault("aws.region", "us-east-2")
+	cfg.SetDefault("aws.profile", "default")
 	cfg.ReadInConfig()
 
-	log.Printf("Loading filestore from: %s", cfg.GetString("path"))
-	store, err := inventory.NewFileStore(cfg.GetString("path"))
+	awsConfig := &aws.Config{}
+	awsConfig.WithRegion(cfg.GetString("aws.region"))
+	awsConfig.WithCredentials(credentials.NewSharedCredentials("", cfg.GetString("aws.profile")))
+
+	baseUrlString := cfg.GetString("baseurl")
+	baseUrl, err := url.Parse(baseUrlString)
 	if err != nil {
-		log.Fatalf("Unable to create file store: %v", err)
+		log.Fatalf("unable to parse api base url '%s': %v", baseUrlString, err)
 	}
 
-	nodes, err := store.Nodes()
+	nodes, err := client.NewInventoryApi(baseUrl, awsConfig).NodeConfig().GetAll()
 	if err != nil {
 		log.Fatalf("Unable to read nodes: %v", err)
 	}
@@ -55,6 +62,11 @@ func main() {
 
 	for _, node := range nodes {
 		domain := node.Networks["provisioning"].Network.Domain
+		if cpNetworkName, ok := node.Environment.Metadata["kubernetes_control_plane_network"].(string); ok {
+			if cpNetwork, ok := node.Networks[cpNetworkName]; ok {
+				domain = cpNetwork.Network.Domain
+			}
+		}
 		fqdn := fmt.Sprintf("%s.%s", node.Hostname, domain)
 		group := groups.Get(node.System.ID())
 		group.AddHost(fqdn)
@@ -67,7 +79,6 @@ func main() {
 		hostVars[fqdn]["inventory_id"] = node.ID()
 		hostVars[fqdn]["rack"] = node.Location.Rack
 		hostVars[fqdn]["role"] = node.Role
-		hostVars[fqdn]["ansible_host"] = node.Networks["provisioning"].NIC.IP
 		hostVars[fqdn]["last_update"] = node.LastUpdated
 		hostVars[fqdn]["nodeconfig"] = node
 		if cpNetworkName, ok := node.Environment.Metadata["kubernetes_control_plane_network"].(string); ok {
