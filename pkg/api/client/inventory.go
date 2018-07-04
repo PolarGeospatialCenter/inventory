@@ -12,6 +12,7 @@ type InventoryApi struct {
 }
 
 func NewInventoryApi(baseUrl *url.URL, configs ...*aws.Config) *InventoryApi {
+	baseUrl, _ = baseUrl.Parse(baseUrl.Path + "/")
 	return &InventoryApi{BaseUrl: baseUrl, AwsConfigs: configs}
 }
 

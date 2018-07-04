@@ -6,7 +6,7 @@ import (
 )
 
 func TestInventoryUrl(t *testing.T) {
-	baseUrl, _ := url.Parse("https://inventory.api.local/v0/")
+	baseUrl, _ := url.Parse("https://inventory.api.local/v0")
 	inv := NewInventoryApi(baseUrl)
 
 	nodeUrl := inv.Url("/node")
