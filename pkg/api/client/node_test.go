@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	gock "gopkg.in/h2non/gock.v1"
 )
 
@@ -16,7 +18,7 @@ func TestNodeGetAll(t *testing.T) {
 
 	gock.New(testBaseUrl.String()).Get("node").Reply(http.StatusOK).BodyString(`[{"InventoryID": "test-000"}]`)
 
-	nodes, err := NewInventoryApi(testBaseUrl).Node().GetAll()
+	nodes, err := NewInventoryApi(testBaseUrl, &aws.Config{Credentials: credentials.NewStaticCredentials("id", "secret", "token")}).Node().GetAll()
 	if err != nil {
 		t.Errorf("unable to get all nodes: %v", err)
 	}
