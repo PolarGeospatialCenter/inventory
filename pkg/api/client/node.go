@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -20,6 +19,47 @@ func (n *Node) GetAll() ([]*types.Node, error) {
 		return nil, fmt.Errorf("unable to get nodes: %v", err)
 	}
 	nodes := []*types.Node{}
-	err = json.Unmarshal(response.Body(), &nodes)
+	err = UnmarshalApiResponse(response, &nodes)
 	return nodes, err
+}
+
+func (n *Node) Create(node *types.Node) error {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	request := client.Client().NewRequest()
+	request.SetBody(node)
+
+	response, err := request.Execute(http.MethodPost, n.Inventory.Url("/node"))
+	if err != nil {
+		return fmt.Errorf("unable to get nodes: %v", err)
+	}
+
+	return UnmarshalApiResponse(response, nil)
+}
+
+func (n *Node) Update(node *types.Node) error {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	request := client.Client().NewRequest()
+	request.SetBody(node)
+
+	response, err := request.Execute(http.MethodPut, n.Inventory.Url(fmt.Sprintf("/node/%s", node.ID())))
+	if err != nil {
+		return fmt.Errorf("unable to update nodes: %v", err)
+	}
+
+	return UnmarshalApiResponse(response, nil)
+}
+
+func (n *Node) Delete(node *types.Node) error {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	request := client.Client().NewRequest()
+
+	response, err := request.Execute(http.MethodDelete, n.Inventory.Url(fmt.Sprintf("/node/%s", node.ID())))
+	if err != nil {
+		return fmt.Errorf("unable to update nodes: %v", err)
+	}
+
+	return UnmarshalApiResponse(response, nil)
 }
