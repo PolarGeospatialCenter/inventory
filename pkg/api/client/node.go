@@ -11,6 +11,18 @@ type Node struct {
 	Inventory *InventoryApi
 }
 
+func (n *Node) Get(id string) (*types.Node, error) {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	response, err := client.Client().NewRequest().Execute(http.MethodGet, n.Inventory.Url(fmt.Sprintf("/node/%s", id)))
+	if err != nil {
+		return nil, fmt.Errorf("unable to get node: %v", err)
+	}
+	node := &types.Node{}
+	err = UnmarshalApiResponse(response, node)
+	return node, err
+}
+
 func (n *Node) GetAll() ([]*types.Node, error) {
 	client := NewRestClient(n.Inventory.AwsConfigs...)
 

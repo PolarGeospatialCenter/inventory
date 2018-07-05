@@ -31,3 +31,21 @@ func TestNodeConfigGetAll(t *testing.T) {
 		t.Errorf("got wrong inventory id: %s", nodes[0].InventoryID)
 	}
 }
+
+func TestNodeConfigGet(t *testing.T) {
+	gock.DisableNetworking()
+	defer gock.EnableNetworking()
+	defer gock.Off()
+	testBaseUrl, _ := url.Parse("https://inventory.api.local/v0/")
+
+	gock.New(testBaseUrl.String()).Get("nodeconfig/test-000").Reply(http.StatusOK).BodyString(`{"InventoryID": "test-000"}`)
+
+	node, err := NewInventoryApi(testBaseUrl, &aws.Config{Credentials: credentials.NewStaticCredentials("id", "secret", "token")}).NodeConfig().Get("test-000")
+	if err != nil {
+		t.Errorf("unable to get all nodes: %v", err)
+	}
+
+	if node.InventoryID != "test-000" {
+		t.Errorf("got wrong inventory id: %s", node.InventoryID)
+	}
+}

@@ -12,6 +12,27 @@ import (
 	gock "gopkg.in/h2non/gock.v1"
 )
 
+func TestNetworkGet(t *testing.T) {
+	gock.DisableNetworking()
+	defer gock.EnableNetworking()
+	defer gock.Off()
+	testBaseUrl, _ := url.Parse("https://inventory.api.local/v0/")
+
+	gock.New(testBaseUrl.String()).
+		Get("network/test-000").
+		Reply(http.StatusOK).
+		BodyString(`{"Name": "test-000"}`)
+
+	network, err := NewInventoryApi(testBaseUrl, &aws.Config{Credentials: credentials.NewStaticCredentials("id", "secret", "token")}).Network().Get("test-000")
+	if err != nil {
+		t.Errorf("unable to get all networks: %v", err)
+	}
+
+	if network.ID() != "test-000" {
+		t.Errorf("got wrong inventory id: %s", network.ID())
+	}
+}
+
 func TestNetworkGetAll(t *testing.T) {
 	gock.DisableNetworking()
 	defer gock.EnableNetworking()

@@ -11,6 +11,18 @@ type Network struct {
 	Inventory *InventoryApi
 }
 
+func (n *Network) Get(id string) (*types.Network, error) {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	response, err := client.Client().NewRequest().Execute(http.MethodGet, n.Inventory.Url(fmt.Sprintf("/network/%s", id)))
+	if err != nil {
+		return nil, fmt.Errorf("unable to get network: %v", err)
+	}
+	network := &types.Network{}
+	err = UnmarshalApiResponse(response, network)
+	return network, err
+}
+
 func (n *Network) GetAll() ([]*types.Network, error) {
 	client := NewRestClient(n.Inventory.AwsConfigs...)
 

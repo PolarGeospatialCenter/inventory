@@ -11,6 +11,18 @@ type System struct {
 	Inventory *InventoryApi
 }
 
+func (n *System) Get(id string) (*types.System, error) {
+	client := NewRestClient(n.Inventory.AwsConfigs...)
+
+	response, err := client.Client().NewRequest().Execute(http.MethodGet, n.Inventory.Url(fmt.Sprintf("/system/%s", id)))
+	if err != nil {
+		return nil, fmt.Errorf("unable to get system: %v", err)
+	}
+	system := &types.System{}
+	err = UnmarshalApiResponse(response, system)
+	return system, err
+}
+
 func (n *System) GetAll() ([]*types.System, error) {
 	client := NewRestClient(n.Inventory.AwsConfigs...)
 
