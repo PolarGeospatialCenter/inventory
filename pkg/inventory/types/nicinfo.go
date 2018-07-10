@@ -3,6 +3,9 @@ package types
 import (
 	"encoding/json"
 	"net"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 // stringNICInfo is used for marshal and unmarshal wrappers
@@ -36,6 +39,8 @@ func (s *stringNICInfo) populateNICInfo(n *NICInfo) error {
 	n.IP = ip
 	return nil
 }
+
+type NICInfoMap map[string]*NICInfo
 
 // NICInfo describes a network interface
 type NICInfo struct {
@@ -76,4 +81,19 @@ func (n *NICInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	err = rawData.populateNICInfo(n)
 	return err
+}
+
+func (n *NICInfoMap) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	if av.M != nil {
+		ni := make(map[string]*NICInfo, len(av.M))
+		err := dynamodbattribute.UnmarshalMap(av.M, &ni)
+		if err != nil {
+			return err
+		}
+		*n = ni
+		return nil
+	} else if av.NULL != nil && *av.NULL {
+		*n = NICInfoMap{}
+	}
+	return nil
 }

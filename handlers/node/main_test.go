@@ -25,6 +25,7 @@ func testNode() *inventorytypes.Node {
 	node.Networks = map[string]*inventorytypes.NICInfo{
 		"testnet": &inventorytypes.NICInfo{MAC: testMac},
 	}
+	node.Tags = inventorytypes.Tags{}
 	node.Metadata = inventorytypes.Metadata{}
 	node.LastUpdated = time.Now()
 	return node
@@ -138,6 +139,52 @@ func TestGetHandler(t *testing.T) {
 			Request: events.APIGatewayProxyRequest{HTTPMethod: http.MethodGet},
 			TestResult: &testutils.TestResult{
 				ExpectedBodyObject: []*inventorytypes.Node{node},
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+	}
+	cases.RunTests(t, Handler)
+}
+
+func TestGetHandlerNullEntries(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+
+	db := dynamodb.New(session.New(dbInstance.Config()))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	err = inv.InitializeTables()
+	if err != nil {
+		t.Errorf("unable to initialize tables")
+	}
+
+	node := &inventorytypes.Node{InventoryID: "test-0034"}
+	err = inv.Update(node)
+	if err != nil {
+		t.Errorf("unable to create test record: %v", err)
+	}
+
+	// expect maps/lists to be returned as empty rather than nil
+	node.Networks = inventorytypes.NICInfoMap{}
+	node.Metadata = inventorytypes.Metadata{}
+	node.Tags = []string{}
+
+	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
+
+	cases := testutils.TestCases{
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get node via nodeId path parameter",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
+				PathParameters: map[string]string{"nodeId": "test-0034"},
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: node,
 				ExpectedStatus:     http.StatusOK,
 			},
 		},
