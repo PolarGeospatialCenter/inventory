@@ -9,8 +9,8 @@ type Node struct {
 	InventoryID string
 	*ChassisLocation
 	ChassisSubIndex string
-	Tags            []string
-	Networks        map[string]*NICInfo
+	Tags            Tags
+	Networks        NICInfoMap
 	Role            string
 	Environment     string
 	System          string

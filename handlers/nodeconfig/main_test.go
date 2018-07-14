@@ -39,6 +39,7 @@ func TestGetHandler(t *testing.T) {
 	node.System = "tsts"
 	node.Environment = "env"
 	node.Role = "Role1"
+	node.Tags = inventorytypes.Tags{}
 	node.Metadata = inventorytypes.Metadata{}
 	node.Networks = map[string]*inventorytypes.NICInfo{
 		"testnetwork": &inventorytypes.NICInfo{MAC: testMac},
