@@ -166,9 +166,23 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	case *types.Node:
 		node := obj.(*types.Node)
 		putItem.Item, _ = dynamodbattribute.MarshalMap(node)
+
+		existingMacIndices, err := db.GetMacIndexEntriesByNodeID(node.ID())
+		if err != nil {
+			return fmt.Errorf("unable to lookup existing mac index entries: %v", err)
+		}
+
 		for _, nic := range node.Networks {
 			if nic.MAC != nil {
 				db.Update(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: node.LastUpdated, NodeID: node.ID()})
+				delete(existingMacIndices, nic.MAC.String())
+			}
+		}
+
+		for _, oldMacIndex := range existingMacIndices {
+			err := db.Delete(oldMacIndex)
+			if err != nil {
+				return fmt.Errorf("unable to delete previous mac index entry: %v", err)
 			}
 		}
 	case *types.Network:
@@ -445,6 +459,22 @@ func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
 	err := db.GetByID(id, system)
 	return system, err
+}
+
+func (db *DynamoDBStore) GetMacIndexEntriesByNodeID(id string) (map[string]*NodeMacIndexEntry, error) {
+	allMacs := make([]*NodeMacIndexEntry, 0, 0)
+	err := db.getAll(&allMacs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get all NodeMacIndexEntries: %v", err)
+	}
+
+	results := make(map[string]*NodeMacIndexEntry, 0)
+	for _, nodeMacIndexEntry := range allMacs {
+		if nodeMacIndexEntry.NodeID == id {
+			results[nodeMacIndexEntry.Mac.String()] = nodeMacIndexEntry
+		}
+	}
+	return results, nil
 }
 
 func (db *DynamoDBStore) UpdateFromInventoryStore(s RawInventoryStore) error {

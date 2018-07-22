@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -408,4 +409,108 @@ func TestDynamoDBGetAll(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestDynamoDBUpdateNodeMacs(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
+	if err != nil {
+		t.Errorf("Error creating dynamo db store tables: %v", err)
+	}
+
+	mac, _ := net.ParseMAC("00:01:02:03:04:05")
+
+	node := &types.Node{
+		InventoryID: "test000",
+		Networks: map[string]*types.NICInfo{
+			"test1": &types.NICInfo{
+				MAC: mac,
+			},
+		}}
+
+	err = dbstore.Update(node)
+	if err != nil {
+		t.Errorf("Unable to put node: %v", err)
+	}
+
+	_, err = dbstore.GetNodeByMAC(mac)
+	if err != nil {
+		t.Errorf("Unable to lookup node by mac: %v", err)
+	}
+
+	node.Networks = map[string]*types.NICInfo{}
+	err = dbstore.Update(node)
+	if err != nil {
+		t.Errorf("Unable to update node: %v", err)
+	}
+
+	_, err = dbstore.GetNodeByMAC(mac)
+	if err == nil {
+		t.Errorf("Node lookup by mac succeeded after removing the mac.")
+	} else if err != ErrObjectNotFound {
+		t.Errorf("Unexpected error looking up node by mac: %v", err)
+	}
+
+}
+
+func TestDynamoDBDeleteNodeMacs(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	dbInstance, err := dynamodbtest.Run(ctx)
+	if err != nil {
+		t.Errorf("unable to start dynamodb: %v", err)
+	}
+	defer dbInstance.Stop(ctx)
+	db := dynamodb.New(session.New(dbInstance.Config()))
+
+	dbstore := NewDynamoDBStore(db, nil)
+
+	err = dbstore.InitializeTables()
+	if err != nil {
+		t.Errorf("Error creating dynamo db store tables: %v", err)
+	}
+
+	mac, _ := net.ParseMAC("00:01:02:03:04:05")
+
+	node := &types.Node{
+		InventoryID: "test000",
+		Networks: map[string]*types.NICInfo{
+			"test1": &types.NICInfo{
+				MAC: mac,
+			},
+		}}
+
+	err = dbstore.Update(node)
+	if err != nil {
+		t.Errorf("Unable to put node: %v", err)
+	}
+
+	_, err = dbstore.GetNodeByMAC(mac)
+	if err != nil {
+		t.Errorf("Unable to lookup node by mac: %v", err)
+	}
+
+	node.Networks = map[string]*types.NICInfo{}
+	err = dbstore.Delete(node)
+	if err != nil {
+		t.Errorf("Unable to Delete node: %v", err)
+	}
+
+	_, err = dbstore.GetNodeByMAC(mac)
+	if err == nil {
+		t.Errorf("Node lookup by mac succeeded after removing the mac.")
+	} else if err != ErrObjectNotFound {
+		t.Errorf("Unexpected error looking up node by mac: %v", err)
+	}
+
 }
