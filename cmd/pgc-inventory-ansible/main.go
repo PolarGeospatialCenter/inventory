@@ -61,12 +61,16 @@ func main() {
 	hostVars := make(map[string]map[string]interface{})
 
 	for _, node := range nodes {
-		domain := node.Networks["provisioning"].Network.Domain
+		var domain string
+		if provNet, ok := node.Networks["provisioning"]; ok {
+			domain = provNet.Network.Domain
+		}
 		if cpNetworkName, ok := node.Environment.Metadata["kubernetes_control_plane_network"].(string); ok {
 			if cpNetwork, ok := node.Networks[cpNetworkName]; ok {
 				domain = cpNetwork.Network.Domain
 			}
 		}
+
 		fqdn := fmt.Sprintf("%s.%s", node.Hostname, domain)
 		group := groups.Get(node.System.ID())
 		group.AddHost(fqdn)
