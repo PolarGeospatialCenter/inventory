@@ -46,8 +46,7 @@
   digest = "1:460e7f499df6a2dc18101a44b0a22f000273822dc9ccda8d9734499cded6caa0"
   name = "github.com/azenk/iputils"
   packages = ["."]
-  pruneopts = ""
-  revision = "a8405f62d18e52f9446ef8d9658e2e17d1eda1bf"
+  revision = "d1883c0677d345c28f243fefa6008f3f044b6e17"
 
 [[projects]]
   digest = "1:522eff2a1f014a64fb403db60fc0110653e4dc5b59779894d208e697b0708ddc"
