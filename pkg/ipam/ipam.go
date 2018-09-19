@@ -90,3 +90,22 @@ func GetRangeByLocation(subnet *net.IPNet, rack string, bottomU uint, sublocatio
 		return net.IP{}, net.IP{}, ErrAllocationNotImplemented
 	}
 }
+
+func GetIpById(id int, subnet *net.IPNet, reservedAdresses ...net.IP) (net.IP, error) {
+
+	startOffset, bits := subnet.Mask.Size()
+
+	newIp, err := iputils.SetBits(subnet.IP, uint64(id), uint(startOffset), uint(bits-startOffset))
+	if err != nil {
+		return net.IP{}, fmt.Errorf("unable to set id bits on address: %v", err)
+	}
+
+	for _, reservedIp := range reservedAdresses {
+		if reservedIp.Equal(newIp) {
+			return net.IP{}, fmt.Errorf("ip conflicts with reserved address: %s", reservedIp.String())
+		}
+	}
+
+	return newIp, nil
+
+}

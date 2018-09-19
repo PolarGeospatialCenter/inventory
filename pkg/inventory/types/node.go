@@ -2,6 +2,9 @@ package types
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -56,4 +59,12 @@ func (n *Node) Hostname() string {
 	}
 
 	return n.InventoryID
+}
+
+func (n *Node) NumericId() (int, error) {
+	reg := regexp.MustCompile(`(\d+)`)
+	matches := reg.FindAllString(n.ID(), -1)
+	matchString := strings.Join(matches, "")
+
+	return strconv.Atoi(matchString)
 }
