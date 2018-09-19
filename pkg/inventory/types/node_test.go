@@ -2,13 +2,14 @@ package types
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func getTestNode() (*Node, string, string) {
 	node := NewNode()
-	node.InventoryID = "sample0001"
+	node.InventoryID = "sample0002"
 	node.ChassisLocation = &ChassisLocation{Building: "123 Fake St", Room: "305", Rack: "te12", BottomU: 4}
 	node.ChassisSubIndex = "a"
 	node.Tags = []string{"foo", "bar", "baz"}
@@ -23,8 +24,8 @@ func getTestNode() (*Node, string, string) {
 	node.Metadata["foo"] = "test"
 	node.Metadata["bar"] = 34.1
 
-	jsonString := `{"InventoryID":"sample0001","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
-	yamlString := `inventoryid: sample0001
+	jsonString := `{"InventoryID":"sample0002","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
+	yamlString := `inventoryid: sample0002
 chassislocation:
   building: 123 Fake St
   room: "305"
@@ -139,5 +140,33 @@ func TestNodeSetTimestamp(t *testing.T) {
 	n.SetTimestamp(ts)
 	if n.Timestamp() != ts.Unix() {
 		t.Errorf("Timestamp returned doesn't match the time set.")
+	}
+}
+
+func TestNodeNumericId(t *testing.T) {
+	n := &Node{
+		InventoryID: "test-0001-as-1",
+	}
+
+	id, err := n.NumericId()
+
+	if id != 11 {
+		t.Errorf("Returned id did not match expected: got %d expected 11", id)
+	}
+
+	if err != nil {
+		t.Errorf("Got an error when we shouldn't have: %v", err)
+	}
+}
+
+func TestNodeNumericIdNil(t *testing.T) {
+	n := &Node{
+		InventoryID: "test-as",
+	}
+
+	_, err := n.NumericId()
+
+	if err, ok := err.(*strconv.NumError); !ok {
+		t.Errorf("Did not get the error we should have: got %v", err)
 	}
 }

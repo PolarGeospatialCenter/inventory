@@ -109,7 +109,12 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 				}
 				gateways = append(gateways, subnet.Gateway.String())
 			} else if subnet.AllocationMethod == "static_inventory" {
-				allocatedIp, err := ipam.GetIPByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
+
+				id, err := node.NumericId()
+				if err != nil {
+					return nil, fmt.Errorf("error getting numeric node id: %v", err)
+				}
+				allocatedIp, err := ipam.GetIpById(id, subnet.Cidr, subnet.Gateway)
 				if err != nil {
 					return nil, fmt.Errorf("error allocating ip from subnet: %v", err)
 				}
