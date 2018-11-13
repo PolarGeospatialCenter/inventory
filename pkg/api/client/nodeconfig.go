@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -32,6 +31,6 @@ func (c *NodeConfig) GetAll() ([]*types.InventoryNode, error) {
 	}
 
 	nodes := []*types.InventoryNode{}
-	err = json.Unmarshal(response.Body(), &nodes)
+	err = UnmarshalApiResponse(response, &nodes)
 	return nodes, err
 }
