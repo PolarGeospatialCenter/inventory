@@ -28,7 +28,7 @@ func (n *Node) GetAll() ([]*types.Node, error) {
 
 	response, err := client.Client().NewRequest().Execute(http.MethodGet, n.Inventory.Url("/node"))
 	if err != nil {
-		return nil, fmt.Errorf("unable to get nodes: %v", err)
+		return nil, fmt.Errorf("unable to get nodes (response %s): %v", response.Status(), err)
 	}
 	nodes := []*types.Node{}
 	err = UnmarshalApiResponse(response, &nodes)
