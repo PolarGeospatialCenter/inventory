@@ -23,10 +23,11 @@ func NewInventoryApiDefaultConfig(profile string) (*InventoryApi, error) {
 
 	cfg := viper.New()
 	cfg.SetConfigName(profile)
+	cfg.AddConfigPath("/etc/inventory")
 	cfg.AddConfigPath("$HOME/.inventory")
 	err := cfg.ReadInConfig()
 	if err != nil {
-		return nil, fmt.Errorf("error reading ~/.inventory/api.yml configuration file: %v", err)
+		return nil, fmt.Errorf("error reading ~/.inventory/default.yml configuration file: %v", err)
 	}
 
 	baseUrl, err := url.Parse(cfg.GetString("baseurl"))
