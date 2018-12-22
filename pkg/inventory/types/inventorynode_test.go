@@ -45,7 +45,10 @@ func TestInventoryNodeUnmarshalJSON(t *testing.T) {
 }
 
 func TestInventoryNodeIPs(t *testing.T) {
-	node, _, _ := getTestInventoryNode()
+	node, _, err := getTestInventoryNode()
+	if err != nil {
+		t.Fatalf("Unable to create inventory node for testing: %v", err)
+	}
 	expected_ips := []net.IP{net.ParseIP("10.0.0.1")}
 
 	if diff := deep.Equal(node.IPs(), expected_ips); diff != nil {
