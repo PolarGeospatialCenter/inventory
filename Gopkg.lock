@@ -43,9 +43,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:460e7f499df6a2dc18101a44b0a22f000273822dc9ccda8d9734499cded6caa0"
+  digest = "1:9815d8eef7ed0c3515cdee0208b0b3730dda85386c4c9e56d5f10746d0150103"
   name = "github.com/azenk/iputils"
   packages = ["."]
+  pruneopts = ""
   revision = "d1883c0677d345c28f243fefa6008f3f044b6e17"
 
 [[projects]]
