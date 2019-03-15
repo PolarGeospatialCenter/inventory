@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
-	"github.com/go-resty/resty"
+	"gopkg.in/resty.v1"
 )
 
 func UnmarshalApiResponse(r *resty.Response, obj interface{}) error {
