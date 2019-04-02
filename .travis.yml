@@ -7,7 +7,3 @@ language: go
 before_install:
   - sudo apt-get update
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
-cache:
-  directories:
-    - vendor
