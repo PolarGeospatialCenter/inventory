@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -96,6 +97,7 @@ func GetObjectResponse(obj interface{}, err error) (*events.APIGatewayProxyRespo
 	case nil:
 		return lambdautils.SimpleOKResponse(obj)
 	default:
+		log.Printf("Returning internal server error.  Actual error was: %v", err)
 		return lambdautils.ErrInternalServerError()
 	}
 }

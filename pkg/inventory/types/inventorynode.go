@@ -97,37 +97,22 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 			return nil, err
 		}
 
-		ips := make([]string, 0)
-		gateways := make([]string, 0)
-		dns := make([]string, 0)
+		config := NewNicConfig()
+
 		for _, subnet := range network.Subnets {
 			if subnet.Cidr.Contains(nicinfo.IP) {
 				ip := net.IPNet{IP: nicinfo.IP, Mask: subnet.Cidr.Mask}
-				ips = append(ips, ip.String())
-				for _, dnsIP := range subnet.DNS {
-					dns = append(dns, dnsIP.String())
-				}
-				gateways = append(gateways, subnet.Gateway.String())
-			} else if subnet.AllocationMethod == "static_inventory" {
-				allocatedIp, err := ipam.GetIPByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
-				if err != nil {
-					return nil, fmt.Errorf("error allocating ip from subnet: %v", err)
-				}
-				ip := net.IPNet{IP: allocatedIp, Mask: subnet.Cidr.Mask}
-				ips = append(ips, ip.String())
-				for _, dnsIP := range subnet.DNS {
-					dns = append(dns, dnsIP.String())
-				}
-				if subnet.Gateway != nil {
-					gateways = append(gateways, subnet.Gateway.String())
-				}
+				config.Append(ip, subnet.DNS, &subnet.Gateway)
+				continue
 			}
-		}
 
-		config := &NicConfig{
-			IP:      ips,
-			Gateway: gateways,
-			DNS:     dns,
+			ip, dns, gateway, err := subnet.GetNicConfig(node)
+			if err == ipam.ErrAllocationNotImplemented {
+				continue
+			} else if err != nil {
+				return nil, err
+			}
+			config.Append(ip, dns, &gateway)
 		}
 
 		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network, Config: *config}

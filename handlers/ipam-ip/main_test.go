@@ -52,7 +52,7 @@ func TestGetHandler(t *testing.T) {
 	network.MTU = 1500
 	network.Metadata = make(map[string]interface{})
 	_, testsubnet, _ := net.ParseCIDR("2001:db8::/64")
-	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Name: "testsubnet", Cidr: testsubnet, Gateway: net.ParseIP("2001:db8::1"), AllocationMethod: "static_inventory"}}
+	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Name: "testsubnet", Cidr: testsubnet, Gateway: net.ParseIP("2001:db8::1"), AllocationMethod: "static_location"}}
 	err = inv.Update(network)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)

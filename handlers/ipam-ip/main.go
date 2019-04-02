@@ -68,33 +68,23 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotFound, map[string]string{}, fmt.Errorf("You must specify a valid subnet name"))
 	}
 
-	switch subnet.AllocationMethod {
-	case "static_inventory":
-		//lookup node specified in request
-		log.Printf(requestData.Requestor)
-		node, err := inv.GetNodeByID(requestData.Requestor)
-		if err != nil {
-			log.Printf("Error looking up node: %v", err)
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("The node you specified could not be found"))
-		}
-
-		ip, err := ipam.GetIPByLocation(subnet.Cidr, node.ChassisLocation.Rack, node.ChassisLocation.BottomU, node.ChassisSubIndex)
-		if err == ipam.ErrAllocationNotImplemented {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, err)
-		} else if err != nil {
-			return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("unable to allocate ip"))
-		}
-
-		maskSize, _ := subnet.Cidr.Mask.Size()
-		response := &IpamIpResponse{IP: ip, Mask: maskSize, Gateway: subnet.Gateway}
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, response)
-	case "":
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusMethodNotAllowed, map[string]string{}, fmt.Errorf("Allocation not enabled for this subnet"))
-	default:
-		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("Allocation method not implemented"))
+	node, err := inv.GetNodeByID(requestData.Requestor)
+	if err != nil {
+		log.Printf("Error looking up node: %v", err)
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusBadRequest, map[string]string{}, fmt.Errorf("The node you specified could not be found"))
 	}
 
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("internal server error"))
+	ip, _, gateway, err := subnet.GetNicConfig(node)
+	if err == ipam.ErrAllocationNotImplemented {
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, err)
+	} else if err != nil {
+		log.Printf("Unable to allocate ip: %v", err)
+		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusInternalServerError, map[string]string{}, fmt.Errorf("unable to allocate ip"))
+	}
+
+	maskSize, _ := ip.Mask.Size()
+	response := &IpamIpResponse{IP: ip.IP, Mask: maskSize, Gateway: gateway}
+	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, response)
 }
 
 // Handler handles requests for nodes

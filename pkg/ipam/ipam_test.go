@@ -7,6 +7,24 @@ import (
 	"github.com/go-test/deep"
 )
 
+func TestGetIpByIdV4(t *testing.T) {
+	_, subnet, _ := net.ParseCIDR("10.1.0.0/16")
+
+	reservedAdress := net.ParseIP("10.1.3.254")
+	id := 20000
+
+	ip, err := GetIpById(id, subnet, reservedAdress)
+
+	if err != nil {
+		t.Errorf("Got error when we should not have: %v", err)
+	}
+
+	expectedIp := net.ParseIP("10.1.78.32")
+	if !ip.Equal(expectedIp) {
+		t.Errorf("Ip returned did not match what we wanted: got %s expected %s", ip.String(), expectedIp.String())
+	}
+}
+
 func TestIsV6(t *testing.T) {
 	v4Ip := net.ParseIP("10.0.0.0")
 	v6Ip := net.ParseIP("2001:db8::1")
