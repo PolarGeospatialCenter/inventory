@@ -61,7 +61,7 @@ func TestDynamoDBCreateTable(t *testing.T) {
 
 	err = dbstore.createTable("test_table")
 	if err != nil {
-		t.Errorf("unable to create table: %v", err)
+		t.Fatalf("unable to create table: %v", err)
 	}
 
 	out, err := db.ListTables(&dynamodb.ListTablesInput{})
@@ -105,7 +105,7 @@ func TestDynamoDBUpdate(t *testing.T) {
 
 	err = dbstore.InitializeTables()
 	if err != nil {
-		t.Errorf("Error creating dynamo db store tables: %v", err)
+		t.Fatalf("Error creating dynamo db store tables: %v", err)
 	}
 
 	err = dbstore.UpdateFromInventoryStore(store)
