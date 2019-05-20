@@ -162,7 +162,7 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(db.tableMap.LookupTable(obj))
 
-	switch obj.(type) {
+	switch o := obj.(type) {
 	case *types.Node:
 		node := obj.(*types.Node)
 		putItem.Item, _ = dynamodbattribute.MarshalMap(node)
@@ -185,17 +185,8 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 				return fmt.Errorf("unable to delete previous mac index entry: %v", err)
 			}
 		}
-	case *types.Network:
-		network := obj.(*types.Network)
-		putItem.Item, _ = dynamodbattribute.MarshalMap(network)
-	case *types.System:
-		system := obj.(*types.System)
-		putItem.Item, _ = dynamodbattribute.MarshalMap(system)
-	case *NodeMacIndexEntry:
-		e := obj.(*NodeMacIndexEntry)
-		putItem.Item, _ = dynamodbattribute.MarshalMap(e)
 	default:
-		return fmt.Errorf("No matching type for update")
+		putItem.Item, _ = dynamodbattribute.MarshalMap(o)
 	}
 
 	invObj := obj.(InventoryObject)
