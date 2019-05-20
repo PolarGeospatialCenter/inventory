@@ -188,7 +188,7 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
-          /ipam/{networkId}/{subnetName}/ip:
+          /ipam/ip:
             post:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -198,13 +198,31 @@ Resources:
               responses: {}
               security:
                 - sigv4: []
-          /ipam/{networkId}/{subnetName}/prefix:
-            post:
+          /ipam/ip/{ipAddress}:
+            get:
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
                 uri:
-                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMPrefixAllocation.Arn}/invocations
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            put:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
+            delete:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
               responses: {}
               security:
                 - sigv4: []
@@ -269,6 +287,26 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: inventory_networks
+      Tags:
+        - Key: application
+          Value: inventory
+  IpamIPTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: network
+          AttributeType: B
+        - AttributeName: host
+          AttributeType: B
+      KeySchema:
+        - AttributeName: network
+          KeyType: HASH
+        - AttributeName: host
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TableName: inventory_ipam_ip
       Tags:
         - Key: application
           Value: inventory
@@ -445,25 +483,38 @@ Resources:
       Runtime: go1.x
       Policies: AmazonDynamoDBFullAccess
       Events:
-        GetNodeEvent:
+        GetEvent:
           Type: Api
           Properties:
-            Path: /ipam/{networkId}/{subnetName}/ip
+            Path: /ipam/ip/{ipAddress}
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        ListEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/ip
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+        CreateEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/ip
             Method: post
             RestApiId:
               Ref: SystemDataApi
-  IPAMPrefixAllocation:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: ipam-prefix
-      CodeUri: bin/
-      Runtime: go1.x
-      Policies: AmazonDynamoDBFullAccess
-      Events:
-        GetNodeEvent:
+        UpdateEvent:
           Type: Api
           Properties:
-            Path: /ipam/{networkId}/{subnetName}/prefix
-            Method: post
+            Path: /ipam/ip/{ipAddress}
+            Method: put
+            RestApiId:
+              Ref: SystemDataApi
+        DeleteEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/ip/{ipAddress}
+            Method: delete
             RestApiId:
               Ref: SystemDataApi
