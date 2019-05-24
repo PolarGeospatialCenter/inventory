@@ -10,6 +10,7 @@ import (
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/go-test/deep"
@@ -33,15 +34,15 @@ func loadGitStore() (*GitStore, error) {
 
 func TestTableMap(t *testing.T) {
 	tableMap := defatultDynamoDBTables
-	if table := tableMap.LookupTable(&types.Node{}); table != "inventory_nodes" {
+	if table := tableMap.LookupTable(&types.Node{}); table.GetName() != "inventory_nodes" {
 		t.Errorf("Got wrong table name for a node: '%s'", table)
 	}
 
-	if table := tableMap.LookupTable([]*types.Node{}); table != "inventory_nodes" {
+	if table := tableMap.LookupTable([]*types.Node{}); table.GetName() != "inventory_nodes" {
 		t.Errorf("Got wrong table name for a slice of nodes: '%s'", table)
 	}
 
-	if table := tableMap.LookupTable(map[string]string{}); table != "" {
+	if table := tableMap.LookupTable(map[string]string{}); table != nil {
 		t.Errorf("Got wrong table name for a map[string]string: '%s'", table)
 	}
 
@@ -59,7 +60,7 @@ func TestDynamoDBCreateTable(t *testing.T) {
 
 	dbstore := NewDynamoDBStore(db, &DynamoDBStoreTableMap{})
 
-	err = dbstore.createTable("test_table")
+	err = dbstore.createTable(&SimpleDynamoDBInventoryTable{"test_table"})
 	if err != nil {
 		t.Fatalf("unable to create table: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestDynamoDBUpdate(t *testing.T) {
 	}
 
 	table := dbstore.tableMap.LookupTable(&types.Node{})
-	out, err := dbstore.db.Scan(&dynamodb.ScanInput{TableName: &table})
+	out, err := dbstore.db.Scan(&dynamodb.ScanInput{TableName: aws.String(table.GetName())})
 	if err != nil {
 		t.Errorf("Unable to scan metadata table: %v", err)
 	}

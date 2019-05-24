@@ -20,10 +20,42 @@ type RawInventoryStore interface {
 }
 
 // DynamoDBStoreTableMap maps data types to the appropriate table within DynamoDB
-type DynamoDBStoreTableMap map[reflect.Type]string
+type DynamoDBStoreTableMap map[reflect.Type]DynamoDBStoreTable
+
+// DynamoDBStoreTable defines an interface for describing a dynamodb table
+type DynamoDBStoreTable interface {
+	GetName() string
+	GetKeySchema() []*dynamodb.KeySchemaElement
+	GetKeyAttributeDefinitions() []*dynamodb.AttributeDefinition
+}
+
+type SimpleDynamoDBInventoryTable struct {
+	Name string
+}
+
+func (t *SimpleDynamoDBInventoryTable) GetName() string {
+	return t.Name
+}
+func (t *SimpleDynamoDBInventoryTable) GetKeySchema() []*dynamodb.KeySchemaElement {
+	return []*dynamodb.KeySchemaElement{
+		{
+			AttributeName: aws.String("id"),
+			KeyType:       aws.String("HASH"),
+		},
+	}
+}
+
+func (t *SimpleDynamoDBInventoryTable) GetKeyAttributeDefinitions() []*dynamodb.AttributeDefinition {
+	return []*dynamodb.AttributeDefinition{
+		{
+			AttributeName: aws.String("id"),
+			AttributeType: aws.String("S"),
+		},
+	}
+}
 
 // LookupTable finds the table name associated with the type of the interface.
-func (m DynamoDBStoreTableMap) LookupTable(t interface{}) string {
+func (m DynamoDBStoreTableMap) LookupTable(t interface{}) DynamoDBStoreTable {
 	var typ reflect.Type
 	typ = reflect.TypeOf(t)
 
@@ -45,15 +77,15 @@ func (m DynamoDBStoreTableMap) LookupTable(t interface{}) string {
 	case reflect.Slice:
 		return m.LookupTable(reflect.Indirect(reflect.New(reflect.TypeOf(t).Elem())).Interface())
 	default:
-		return ""
+		return nil
 	}
 }
 
-func (m DynamoDBStoreTableMap) Tables() []string {
-	tables := make([]string, len(m))
+func (m DynamoDBStoreTableMap) Tables() []DynamoDBStoreTable {
+	tables := make([]DynamoDBStoreTable, len(m))
 	idx := 0
-	for _, tablename := range m {
-		tables[idx] = tablename
+	for _, table := range m {
+		tables[idx] = table
 		idx++
 	}
 	return tables
@@ -61,10 +93,10 @@ func (m DynamoDBStoreTableMap) Tables() []string {
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		reflect.TypeOf(types.Node{}):        "inventory_nodes",
-		reflect.TypeOf(types.Network{}):     "inventory_networks",
-		reflect.TypeOf(types.System{}):      "inventory_systems",
-		reflect.TypeOf(NodeMacIndexEntry{}): "inventory_node_mac_lookup",
+		reflect.TypeOf(types.Node{}):        &SimpleDynamoDBInventoryTable{Name: "inventory_nodes"},
+		reflect.TypeOf(types.Network{}):     &SimpleDynamoDBInventoryTable{Name: "inventory_networks"},
+		reflect.TypeOf(types.System{}):      &SimpleDynamoDBInventoryTable{Name: "inventory_systems"},
+		reflect.TypeOf(NodeMacIndexEntry{}): &SimpleDynamoDBInventoryTable{Name: "inventory_node_mac_lookup"},
 	}
 )
 
@@ -87,8 +119,8 @@ func (i *NodeMacIndexEntry) SetTimestamp(timestamp time.Time) {
 }
 
 type DynamoDBTableLookup interface {
-	LookupTable(interface{}) string
-	Tables() []string
+	LookupTable(interface{}) DynamoDBStoreTable
+	Tables() []DynamoDBStoreTable
 }
 
 type ErrDynamoDBRecordNotFound struct {
@@ -116,7 +148,7 @@ func NewDynamoDBStore(db *dynamodb.DynamoDB, tableMap DynamoDBTableLookup) *Dyna
 
 func (db *DynamoDBStore) InitializeTables() error {
 	for _, table := range db.tableMap.Tables() {
-		_, err := db.db.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
+		_, err := db.db.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String(table.GetName())})
 		if err == nil {
 			continue
 		}
@@ -128,25 +160,15 @@ func (db *DynamoDBStore) InitializeTables() error {
 	return nil
 }
 
-func (db *DynamoDBStore) createTable(table string) error {
+func (db *DynamoDBStore) createTable(table DynamoDBStoreTable) error {
 	input := &dynamodb.CreateTableInput{
-		AttributeDefinitions: []*dynamodb.AttributeDefinition{
-			{
-				AttributeName: aws.String("id"),
-				AttributeType: aws.String("S"),
-			},
-		},
-		KeySchema: []*dynamodb.KeySchemaElement{
-			{
-				AttributeName: aws.String("id"),
-				KeyType:       aws.String("HASH"),
-			},
-		},
+		AttributeDefinitions: table.GetKeyAttributeDefinitions(),
+		KeySchema:            table.GetKeySchema(),
 		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(1),
 			WriteCapacityUnits: aws.Int64(1),
 		},
-		TableName: aws.String(table),
+		TableName: aws.String(table.GetName()),
 	}
 
 	_, err := db.db.CreateTable(input)
@@ -159,8 +181,12 @@ func (db *DynamoDBStore) Refresh() error {
 
 func (db *DynamoDBStore) Update(obj InventoryObject) error {
 	// log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
+	table := db.tableMap.LookupTable(obj)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", obj)
+	}
 	putItem := &dynamodb.PutItemInput{}
-	putItem.SetTableName(db.tableMap.LookupTable(obj))
+	putItem.SetTableName(table.GetName())
 
 	switch o := obj.(type) {
 	case *types.Node:
@@ -208,13 +234,16 @@ func (db *DynamoDBStore) Delete(obj InventoryObject) error {
 	}
 
 	table := db.tableMap.LookupTable(obj)
-	partitionKey, err := db.getPartitionKey(table)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", obj)
+	}
+	partitionKey, err := db.getPartitionKey(table.GetName())
 	if err != nil {
 		return fmt.Errorf("unable to determine partition key for requested delete object type (%T): %v", obj, err)
 	}
 	deleteItem := &dynamodb.DeleteItemInput{}
 	deleteItem.SetKey(map[string]*dynamodb.AttributeValue{partitionKey: objID})
-	deleteItem.SetTableName(table)
+	deleteItem.SetTableName(table.GetName())
 
 	_, err = db.db.DeleteItem(deleteItem)
 	return err
@@ -237,7 +266,10 @@ func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
 // the highest sort key (last_updated timestamp)
 func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	table := db.tableMap.LookupTable(out)
-	partitionKeyName, err := db.getPartitionKey(table)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", out)
+	}
+	partitionKeyName, err := db.getPartitionKey(table.GetName())
 	if err != nil {
 		return err
 	}
@@ -250,7 +282,7 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
 	q := &dynamodb.QueryInput{
 		ScanIndexForward:          aws.Bool(false),
-		TableName:                 aws.String(table),
+		TableName:                 aws.String(table.GetName()),
 		KeyConditionExpression:    aws.String(queryString),
 		ExpressionAttributeValues: queryValues,
 	}
@@ -261,7 +293,7 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 	}
 
 	if len(results.Items) == 0 {
-		return ErrDynamoDBRecordNotFound{ID: id, Table: table}
+		return ErrDynamoDBRecordNotFound{ID: id, Table: table.GetName()}
 	}
 	err = dynamodbattribute.UnmarshalMap(results.Items[0], out)
 	return err
@@ -269,8 +301,11 @@ func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
 
 func (db *DynamoDBStore) getAll(out interface{}) error {
 	table := db.tableMap.LookupTable(out)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", out)
+	}
 	in := &dynamodb.ScanInput{
-		TableName: aws.String(table),
+		TableName: aws.String(table.GetName()),
 	}
 
 	outputElements := make([]map[string]*dynamodb.AttributeValue, 0, 0)
@@ -296,7 +331,11 @@ func (db *DynamoDBStore) getAll(out interface{}) error {
 
 func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
-	partitionKeyName, err := db.getPartitionKey(table)
+	if table == nil {
+		return false, fmt.Errorf("No table found for object of type %T", obj)
+	}
+
+	partitionKeyName, err := db.getPartitionKey(table.GetName())
 	if err != nil {
 		return false, err
 	}
@@ -309,7 +348,7 @@ func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
 	q := &dynamodb.QueryInput{
 		ScanIndexForward:          aws.Bool(false),
-		TableName:                 aws.String(table),
+		TableName:                 aws.String(table.GetName()),
 		KeyConditionExpression:    aws.String(queryString),
 		ExpressionAttributeValues: queryValues,
 	}
