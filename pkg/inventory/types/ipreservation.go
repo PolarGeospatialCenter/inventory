@@ -14,10 +14,12 @@ import (
 
 type IPReservation struct {
 	HostInformation string
-	IP              *net.IPNet
-	MAC             net.HardwareAddr
-	Start           *time.Time
-	End             *time.Time
+	IP              *net.IPNet       `json:"ip"`
+	MAC             net.HardwareAddr `json:"mac"`
+	Gateway         net.IP           `json:"gateway"`
+	DNS             []net.IP         `json:"dns"`
+	Start           *time.Time       `json:"start"`
+	End             *time.Time       `json:"end"`
 }
 
 func (r *IPReservation) SetRandomIP() error {
@@ -57,17 +59,38 @@ func (r *IPReservation) ValidAt(t time.Time) bool {
 	return true
 }
 
+func (r *IPReservation) SetSubnetInformation(subnet *Subnet) {
+	r.Gateway = nil
+	if subnet.Gateway != nil {
+		r.Gateway = subnet.Gateway
+	}
+
+	r.DNS = []net.IP{}
+	for _, dns := range subnet.DNS {
+		r.DNS = append(r.DNS, dns)
+	}
+}
+
 func (r *IPReservation) MarshalJSON() ([]byte, error) {
 	type Alias IPReservation
 	v := &struct {
 		*Alias
-		IP  string
-		MAC string
+		IP      string   `json:"ip"`
+		MAC     string   `json:"mac"`
+		Gateway string   `json:"gateway"`
+		DNS     []string `json:"dns"`
 	}{
 		Alias: (*Alias)(r),
 	}
 	v.MAC = v.Alias.MAC.String()
 	v.IP = v.Alias.IP.String()
+	v.DNS = []string{}
+	for _, dns := range v.Alias.DNS {
+		v.DNS = append(v.DNS, dns.String())
+	}
+	if v.Alias.Gateway != nil {
+		v.Gateway = v.Alias.Gateway.String()
+	}
 	return json.Marshal(v)
 }
 
@@ -77,8 +100,10 @@ func (r *IPReservation) UnmarshalJSON(data []byte) error {
 	type Alias IPReservation
 	v := &struct {
 		*Alias
-		IP  string
-		MAC string
+		IP      string   `json:"ip"`
+		MAC     string   `json:"mac"`
+		Gateway string   `json:"gateway"`
+		DNS     []string `json:"dns"`
 	}{
 		Alias: (*Alias)(r),
 	}
@@ -98,6 +123,15 @@ func (r *IPReservation) UnmarshalJSON(data []byte) error {
 
 	mac, err := net.ParseMAC(v.MAC)
 	r.MAC = mac
+
+	r.Gateway = net.ParseIP(v.Gateway)
+
+	for _, dns := range v.DNS {
+		ip := net.ParseIP(dns)
+		if ip != nil {
+			r.DNS = append(r.DNS, ip)
+		}
+	}
 	return err
 }
 func (r *IPReservation) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {

@@ -45,7 +45,8 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrNotFound("No reservation found for that IP")
 	}
 
-	return lambdautils.SimpleOKResponse(createResponseFromReservation(reservation, subnet))
+	reservation.SetSubnetInformation(subnet)
+	return lambdautils.SimpleOKResponse(reservation)
 }
 
 func lookupSubnetForIP(inv *inventory.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
@@ -107,7 +108,8 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrInternalServerError("Unable to lookup subnet for IP.  This shouldn't happen unless a subnet has been deleted.")
 	}
 
-	return lambdautils.SimpleOKResponse(createResponseFromReservation(ipReservation, subnet))
+	ipReservation.SetSubnetInformation(subnet)
+	return lambdautils.SimpleOKResponse(ipReservation)
 }
 
 // DeleteHandler handles POST method requests from the API gateway
@@ -219,7 +221,8 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		}
 	}
 
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, createResponseFromReservation(r, subnet))
+	r.SetSubnetInformation(subnet)
+	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, r)
 }
 
 func parseIPOrCidr(ipString string) net.IP {
@@ -233,12 +236,6 @@ func parseIPOrCidr(ipString string) net.IP {
 		return ip
 	}
 	return nil
-}
-
-func createResponseFromReservation(res *types.IPReservation, subnet *types.Subnet) *types.IpamIpResponse {
-	response := types.NewIpamResponseFromReservation(res)
-	response.SetSubnetInformation(subnet)
-	return response
 }
 
 func getExistingReservationInSubnet(inv *inventory.DynamoDBStore, subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {

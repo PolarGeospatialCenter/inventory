@@ -122,15 +122,14 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 			t.Fatalf("Expected created status, got: %d", response.StatusCode)
 		}
 
-		reservation := &types.IpamIpResponse{}
+		reservation := &types.IPReservation{}
 		err = json.Unmarshal([]byte(response.Body), reservation)
 		if err != nil {
 			t.Fatalf("Unable to parse response: %v", err)
 		}
 
 		_, expectedNet, _ := net.ParseCIDR("10.0.0.0/24")
-		reservedIP, _, _ := net.ParseCIDR(reservation.IP)
-		if !expectedNet.Contains(reservedIP) {
+		if !expectedNet.Contains(reservation.IP.IP) {
 			t.Errorf("Reserved IP in wrong subnet: %s", reservation.IP)
 		}
 
@@ -181,12 +180,12 @@ func TestGetReservationKnownHost(t *testing.T) {
 		}
 		t.Log(response.Body)
 
-		r := &types.IpamIpResponse{}
+		r := &types.IPReservation{}
 		err = json.Unmarshal([]byte(response.Body), r)
 		if err != nil {
 			t.Errorf("Unable to unmarshal response: %v", err)
 		}
-		if r.Gateway != "10.0.0.1" {
+		if r.Gateway.String() != "10.0.0.1" {
 			t.Errorf("Gateway value doesn't match expected %v", r.Gateway)
 		}
 		if r.Start == nil {
@@ -217,14 +216,14 @@ func TestCreateReservationStaticReservation(t *testing.T) {
 			t.Fatalf("Expected created status, got: %d", response.StatusCode)
 		}
 
-		reservation := &types.IpamIpResponse{}
+		reservation := &types.IPReservation{}
 		err = json.Unmarshal([]byte(response.Body), reservation)
 		if err != nil {
 			t.Log(response.Body)
 			t.Fatalf("Unable to parse response: %v", err)
 		}
 
-		if reservation.IP != "10.0.0.2/24" {
+		if reservation.IP.String() != "10.0.0.2/24" {
 			t.Errorf("Wrong IP reserved: %s", reservation.IP)
 		}
 	})
