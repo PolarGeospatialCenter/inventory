@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbstore"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -26,7 +27,14 @@ type DynamoDBStoreTableMap map[reflect.Type]DynamoDBStoreTable
 type DynamoDBStoreTable interface {
 	GetName() string
 	GetKeySchema() []*dynamodb.KeySchemaElement
+	GetPartitionKeyName() string
 	GetKeyAttributeDefinitions() []*dynamodb.AttributeDefinition
+	GetKeyFrom(interface{}) (map[string]*dynamodb.AttributeValue, error)
+	GetItemQueryInputFrom(interface{}) (*dynamodb.QueryInput, error)
+}
+
+type SimpleTableItem interface {
+	ID() string
 }
 
 type SimpleDynamoDBInventoryTable struct {
@@ -36,6 +44,11 @@ type SimpleDynamoDBInventoryTable struct {
 func (t *SimpleDynamoDBInventoryTable) GetName() string {
 	return t.Name
 }
+
+func (t *SimpleDynamoDBInventoryTable) GetPartitionKeyName() string {
+	return "id"
+}
+
 func (t *SimpleDynamoDBInventoryTable) GetKeySchema() []*dynamodb.KeySchemaElement {
 	return []*dynamodb.KeySchemaElement{
 		{
@@ -52,6 +65,45 @@ func (t *SimpleDynamoDBInventoryTable) GetKeyAttributeDefinitions() []*dynamodb.
 			AttributeType: aws.String("S"),
 		},
 	}
+}
+
+func (t *SimpleDynamoDBInventoryTable) GetKeyFrom(o interface{}) (map[string]*dynamodb.AttributeValue, error) {
+	obj, valid := o.(SimpleTableItem)
+	if !valid {
+		return nil, fmt.Errorf("unsupported object type: %T", o)
+	}
+	if obj.ID() == "" {
+		return nil, types.ErrKeyNotSet
+	}
+	objID, err := dynamodbattribute.Marshal(obj.ID())
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
+	}
+	return map[string]*dynamodb.AttributeValue{"id": objID}, nil
+}
+
+func (t *SimpleDynamoDBInventoryTable) GetItemQueryInputFrom(o interface{}) (*dynamodb.QueryInput, error) {
+	obj, valid := o.(SimpleTableItem)
+	if !valid {
+		return nil, fmt.Errorf("unsupported object type: %T", o)
+	}
+
+	if obj.ID() == "" {
+		return nil, types.ErrKeyNotSet
+	}
+
+	queryValues, err := dynamodbattribute.MarshalMap(map[string]string{":partitionkeyval": obj.ID()})
+	if err != nil {
+		return nil, err
+	}
+
+	queryString := fmt.Sprintf("%s=:partitionkeyval", "id")
+	q := &dynamodb.QueryInput{
+		TableName:                 aws.String(t.GetName()),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
+	}
+	return q, nil
 }
 
 // LookupTable finds the table name associated with the type of the interface.
@@ -93,10 +145,11 @@ func (m DynamoDBStoreTableMap) Tables() []DynamoDBStoreTable {
 
 var (
 	defatultDynamoDBTables = &DynamoDBStoreTableMap{
-		reflect.TypeOf(types.Node{}):        &SimpleDynamoDBInventoryTable{Name: "inventory_nodes"},
-		reflect.TypeOf(types.Network{}):     &SimpleDynamoDBInventoryTable{Name: "inventory_networks"},
-		reflect.TypeOf(types.System{}):      &SimpleDynamoDBInventoryTable{Name: "inventory_systems"},
-		reflect.TypeOf(NodeMacIndexEntry{}): &SimpleDynamoDBInventoryTable{Name: "inventory_node_mac_lookup"},
+		reflect.TypeOf(types.Node{}):          &SimpleDynamoDBInventoryTable{Name: "inventory_nodes"},
+		reflect.TypeOf(types.Network{}):       &SimpleDynamoDBInventoryTable{Name: "inventory_networks"},
+		reflect.TypeOf(types.System{}):        &SimpleDynamoDBInventoryTable{Name: "inventory_systems"},
+		reflect.TypeOf(NodeMacIndexEntry{}):   &SimpleDynamoDBInventoryTable{Name: "inventory_node_mac_lookup"},
+		reflect.TypeOf(types.IPReservation{}): &dynamodbstore.IPReservationTable{Name: "inventory_ip_reservations"},
 	}
 )
 
@@ -148,6 +201,9 @@ func NewDynamoDBStore(db *dynamodb.DynamoDB, tableMap DynamoDBTableLookup) *Dyna
 
 func (db *DynamoDBStore) InitializeTables() error {
 	for _, table := range db.tableMap.Tables() {
+		if table == nil {
+			continue
+		}
 		_, err := db.db.DescribeTable(&dynamodb.DescribeTableInput{TableName: aws.String(table.GetName())})
 		if err == nil {
 			continue
@@ -179,7 +235,7 @@ func (db *DynamoDBStore) Refresh() error {
 	return nil
 }
 
-func (db *DynamoDBStore) Update(obj InventoryObject) error {
+func (db *DynamoDBStore) Update(obj interface{}) error {
 	// log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
@@ -215,11 +271,17 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 		putItem.Item, _ = dynamodbattribute.MarshalMap(o)
 	}
 
-	invObj := obj.(InventoryObject)
-	putItem.Item["id"], _ = dynamodbattribute.Marshal(invObj.ID())
+	keyMap, err := table.GetKeyFrom(obj)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
 
 	// log.Print(putItem.TableName)
-	_, err := db.db.PutItem(putItem)
+	_, err = db.db.PutItem(putItem)
 	if err != nil {
 		return err
 	}
@@ -227,75 +289,21 @@ func (db *DynamoDBStore) Update(obj InventoryObject) error {
 }
 
 // Delete deletes the inventory object from dynamodb
-func (db *DynamoDBStore) Delete(obj InventoryObject) error {
-	objID, err := dynamodbattribute.Marshal(obj.ID())
-	if err != nil {
-		return fmt.Errorf("unable to marshal object id for deletion: %v", err)
-	}
-
+func (db *DynamoDBStore) Delete(obj interface{}) error {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
 		return fmt.Errorf("No table found for object of type %T", obj)
 	}
-	partitionKey, err := db.getPartitionKey(table.GetName())
-	if err != nil {
-		return fmt.Errorf("unable to determine partition key for requested delete object type (%T): %v", obj, err)
-	}
+
 	deleteItem := &dynamodb.DeleteItemInput{}
-	deleteItem.SetKey(map[string]*dynamodb.AttributeValue{partitionKey: objID})
+	objKey, err := table.GetKeyFrom(obj)
+	if err != nil {
+		return fmt.Errorf("unable to get key from object: %v", err)
+	}
+	deleteItem.SetKey(objKey)
 	deleteItem.SetTableName(table.GetName())
 
 	_, err = db.db.DeleteItem(deleteItem)
-	return err
-}
-
-func (db *DynamoDBStore) getPartitionKey(table string) (string, error) {
-	out, err := db.db.DescribeTable(&dynamodb.DescribeTableInput{TableName: &table})
-	if err != nil {
-		return "", err
-	}
-	for _, key := range out.Table.KeySchema {
-		if *key.KeyType == "HASH" {
-			return *key.AttributeName, nil
-		}
-	}
-	return "", fmt.Errorf("no partition key found for table %s", table)
-}
-
-// getNewest returns the entry from the table with a partition id matching id and
-// the highest sort key (last_updated timestamp)
-func (db *DynamoDBStore) getNewest(id string, out interface{}) error {
-	table := db.tableMap.LookupTable(out)
-	if table == nil {
-		return fmt.Errorf("No table found for object of type %T", out)
-	}
-	partitionKeyName, err := db.getPartitionKey(table.GetName())
-	if err != nil {
-		return err
-	}
-
-	queryValues, err := dynamodbattribute.MarshalMap(map[string]string{":partitionkeyval": id})
-	if err != nil {
-		return err
-	}
-
-	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
-	q := &dynamodb.QueryInput{
-		ScanIndexForward:          aws.Bool(false),
-		TableName:                 aws.String(table.GetName()),
-		KeyConditionExpression:    aws.String(queryString),
-		ExpressionAttributeValues: queryValues,
-	}
-
-	results, err := db.db.Query(q)
-	if err != nil {
-		return err
-	}
-
-	if len(results.Items) == 0 {
-		return ErrDynamoDBRecordNotFound{ID: id, Table: table.GetName()}
-	}
-	err = dynamodbattribute.UnmarshalMap(results.Items[0], out)
 	return err
 }
 
@@ -329,29 +337,51 @@ func (db *DynamoDBStore) getAll(out interface{}) error {
 	return nil
 }
 
+func (db *DynamoDBStore) Get(obj interface{}) error {
+	table := db.tableMap.LookupTable(obj)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", obj)
+	}
+
+	q, err := table.GetItemQueryInputFrom(obj)
+	if err != nil {
+		return err
+	}
+
+	q.ScanIndexForward = aws.Bool(false)
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return err
+	}
+
+	if len(results.Items) == 0 {
+		return ErrObjectNotFound
+	}
+
+	if len(results.Items) > 1 {
+		return fmt.Errorf("unable to lookup exactly one item: found %d matching", len(results.Items))
+	}
+
+	err = dynamodbattribute.UnmarshalMap(results.Items[0], obj)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
 		return false, fmt.Errorf("No table found for object of type %T", obj)
 	}
 
-	partitionKeyName, err := db.getPartitionKey(table.GetName())
+	q, err := table.GetItemQueryInputFrom(obj)
 	if err != nil {
 		return false, err
 	}
 
-	queryValues, err := dynamodbattribute.MarshalMap(map[string]string{":partitionkeyval": obj.ID()})
-	if err != nil {
-		return false, err
-	}
-
-	queryString := fmt.Sprintf("%s=:partitionkeyval", partitionKeyName)
-	q := &dynamodb.QueryInput{
-		ScanIndexForward:          aws.Bool(false),
-		TableName:                 aws.String(table.GetName()),
-		KeyConditionExpression:    aws.String(queryString),
-		ExpressionAttributeValues: queryValues,
-	}
+	q.ScanIndexForward = aws.Bool(false)
 
 	results, err := db.db.Query(q)
 	if err != nil {
@@ -359,14 +389,6 @@ func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
 	}
 
 	return len(results.Items) != 0, nil
-}
-
-func (db *DynamoDBStore) GetByID(id string, obj InventoryObject) error {
-	err := db.getNewest(id, obj)
-	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
-		return ErrObjectNotFound
-	}
-	return err
 }
 
 func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, error) {
@@ -414,6 +436,18 @@ func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.Inv
 	return types.NewInventoryNode(node, db, db)
 }
 
+func (db *DynamoDBStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReservation, error) {
+	r := &types.IPReservation{
+		IP: ipNet,
+	}
+	err := db.Get(r)
+	return r, err
+}
+
+func (db *DynamoDBStore) CreateIPReservation(r *types.IPReservation) error {
+	return db.Update(r)
+}
+
 func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {
 	nodeList := make([]*types.Node, 0, 0)
 	err := db.getAll(&nodeList)
@@ -429,13 +463,15 @@ func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {
 
 func (db *DynamoDBStore) GetNodeByID(id string) (*types.Node, error) {
 	node := &types.Node{}
-	err := db.GetByID(id, node)
+	node.InventoryID = id
+	err := db.Get(node)
 	return node, err
 }
 
 func (db *DynamoDBStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error) {
 	e := &NodeMacIndexEntry{}
-	err := db.getNewest(mac.String(), e)
+	e.Mac = mac
+	err := db.Get(e)
 	if _, ok := err.(ErrDynamoDBRecordNotFound); ok {
 		return nil, ErrObjectNotFound
 	} else if err != nil {
@@ -461,7 +497,8 @@ func (db *DynamoDBStore) GetNetworks() (map[string]*types.Network, error) {
 
 func (db *DynamoDBStore) GetNetworkByID(id string) (*types.Network, error) {
 	network := &types.Network{}
-	err := db.GetByID(id, network)
+	network.Name = id
+	err := db.Get(network)
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +524,8 @@ func (db *DynamoDBStore) GetSystems() (map[string]*types.System, error) {
 
 func (db *DynamoDBStore) GetSystemByID(id string) (*types.System, error) {
 	system := &types.System{}
-	err := db.GetByID(id, system)
+	system.Name = id
+	err := db.Get(system)
 	return system, err
 }
 
