@@ -3,7 +3,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -126,17 +125,21 @@ func (r *IPReservation) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValu
 		av.M["IP"] = i
 	}
 
-	s, err := dynamodbattribute.Marshal(r.Start)
-	if err != nil {
-		return err
+	if r.Start != nil {
+		s, err := dynamodbattribute.Marshal(r.Start.Unix())
+		if err != nil {
+			return err
+		}
+		av.M["Start"] = s
 	}
-	av.M["Start"] = s
 
-	e, err := dynamodbattribute.Marshal(r.End)
-	if err != nil {
-		return err
+	if r.End != nil {
+		e, err := dynamodbattribute.Marshal(r.End.Unix())
+		if err != nil {
+			return err
+		}
+		av.M["End"] = e
 	}
-	av.M["End"] = e
 	return nil
 }
 
@@ -163,11 +166,23 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 	}
 
 	if v, ok := av.M["Start"]; ok && v.NULL == nil {
-		log.Print(v)
+		var sEpoch *int64
+		err := dynamodbattribute.Unmarshal(v, sEpoch)
+		if err != nil {
+			return err
+		}
+		s := time.Unix(*sEpoch, 0)
+		r.Start = &s
 	}
 
 	if v, ok := av.M["End"]; ok && v.NULL == nil {
-		log.Print(v)
+		var eEpoch *int64
+		err := dynamodbattribute.Unmarshal(v, eEpoch)
+		if err != nil {
+			return err
+		}
+		e := time.Unix(*eEpoch, 0)
+		r.Start = &e
 	}
 
 	return nil
