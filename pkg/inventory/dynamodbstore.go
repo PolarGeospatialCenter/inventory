@@ -149,7 +149,7 @@ var (
 		reflect.TypeOf(types.Network{}):       &SimpleDynamoDBInventoryTable{Name: "inventory_networks"},
 		reflect.TypeOf(types.System{}):        &SimpleDynamoDBInventoryTable{Name: "inventory_systems"},
 		reflect.TypeOf(NodeMacIndexEntry{}):   &SimpleDynamoDBInventoryTable{Name: "inventory_node_mac_lookup"},
-		reflect.TypeOf(types.IPReservation{}): &dynamodbstore.IPReservationTable{Name: "inventory_ip_reservations"},
+		reflect.TypeOf(types.IPReservation{}): &dynamodbstore.IPReservationTable{Name: "inventory_ipam_ip"},
 	}
 )
 
