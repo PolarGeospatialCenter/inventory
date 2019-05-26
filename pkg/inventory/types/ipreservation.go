@@ -182,7 +182,7 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 			return fmt.Errorf("unable to unmarshal end time: %v", err)
 		}
 		e := time.Unix(*eEpoch, 0)
-		r.Start = &e
+		r.End = &e
 	}
 
 	return nil

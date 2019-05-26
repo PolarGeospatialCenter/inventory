@@ -64,7 +64,9 @@ func runTest(t *testing.T, h testHandler) {
 
 	nodeIP, nodeMask, _ := net.ParseCIDR("10.0.0.7/24")
 	nodeMask.IP = nodeIP
-	err = inv.Update(&types.IPReservation{IP: nodeMask, MAC: testMac})
+	now := time.Now()
+	end := now.Add(1 * time.Hour)
+	err = inv.Update(&types.IPReservation{IP: nodeMask, MAC: testMac, Start: &now, End: &end})
 	if err != nil {
 		t.Errorf("Error reserving IP for test node: %v", err)
 	}
@@ -74,7 +76,6 @@ func runTest(t *testing.T, h testHandler) {
 		t.Errorf("Error parsing gw addr: %v", err)
 	}
 	gw.IP = gwIp
-	now := time.Now()
 	err = inv.Update(&types.IPReservation{IP: gw, Start: &now})
 	if err != nil {
 		t.Errorf("unable to create reservation for gateway: %v", err)
@@ -187,6 +188,13 @@ func TestGetReservationKnownHost(t *testing.T) {
 		}
 		if r.Gateway != "10.0.0.1" {
 			t.Errorf("Gateway value doesn't match expected %v", r.Gateway)
+		}
+		if r.Start == nil {
+			t.Errorf("Got nil start time")
+		}
+
+		if r.End == nil {
+			t.Errorf("Got nil end time")
 		}
 	})
 }
