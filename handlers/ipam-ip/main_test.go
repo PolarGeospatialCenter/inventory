@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
@@ -73,7 +74,8 @@ func runTest(t *testing.T, h testHandler) {
 		t.Errorf("Error parsing gw addr: %v", err)
 	}
 	gw.IP = gwIp
-	err = inv.Update(&types.IPReservation{IP: gw})
+	now := time.Now()
+	err = inv.Update(&types.IPReservation{IP: gw, Start: &now})
 	if err != nil {
 		t.Errorf("unable to create reservation for gateway: %v", err)
 	}
@@ -108,7 +110,8 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 			{
 				"mac": "02:03:04:05:06:07",
 				"name": "foo-host",
-				"subnet": "10.0.0.0"
+				"subnet": "10.0.0.0",
+				"ttl": "1h"
 			}`,
 		})
 		if err != nil {
@@ -128,6 +131,15 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 		reservedIP, _, _ := net.ParseCIDR(reservation.IP)
 		if !expectedNet.Contains(reservedIP) {
 			t.Errorf("Reserved IP in wrong subnet: %s", reservation.IP)
+		}
+
+		t.Log(reservation)
+		if reservation.Start == nil {
+			t.Errorf("Got nil start time")
+		}
+
+		if reservation.End == nil {
+			t.Errorf("Got nil end time")
 		}
 
 	})

@@ -166,20 +166,20 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 	}
 
 	if v, ok := av.M["Start"]; ok && v.NULL == nil {
-		var sEpoch *int64
+		sEpoch := new(int64)
 		err := dynamodbattribute.Unmarshal(v, sEpoch)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to unmarshal start time: %v", err)
 		}
 		s := time.Unix(*sEpoch, 0)
 		r.Start = &s
 	}
 
 	if v, ok := av.M["End"]; ok && v.NULL == nil {
-		var eEpoch *int64
+		eEpoch := new(int64)
 		err := dynamodbattribute.Unmarshal(v, eEpoch)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to unmarshal end time: %v", err)
 		}
 		e := time.Unix(*eEpoch, 0)
 		r.Start = &e
