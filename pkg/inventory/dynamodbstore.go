@@ -370,7 +370,7 @@ func (db *DynamoDBStore) Get(obj interface{}) error {
 	return nil
 }
 
-func (db *DynamoDBStore) Exists(obj InventoryObject) (bool, error) {
+func (db *DynamoDBStore) Exists(obj interface{}) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
 		return false, fmt.Errorf("No table found for object of type %T", obj)
