@@ -152,6 +152,23 @@ func TestCreateReservationKnownHost(t *testing.T) {
 		}
 	})
 }
+
+func TestGetReservationKnownHost(t *testing.T) {
+	runTest(t, func(handlerCtx context.Context, t *testing.T) {
+		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Sound return a conflict.
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{
+			HTTPMethod:     http.MethodGet,
+			PathParameters: map[string]string{"ipAddress": "10.0.0.7"},
+		})
+		if err != nil {
+			t.Fatalf("Unexpected error creating reservation for unknown host: %v", err)
+		}
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("Expected ok status, got: %d", response.StatusCode)
+		}
+		t.Logf("Response body: %v", response.Body)
+	})
+}
 func TestCreateReservationStaticReservation(t *testing.T) {
 	runTest(t, func(handlerCtx context.Context, t *testing.T) {
 		// Post to ip endpoint with MAC, and IP staticly reserved in subnet.  Should return Conflict.

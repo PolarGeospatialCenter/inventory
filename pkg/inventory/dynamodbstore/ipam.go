@@ -57,11 +57,20 @@ func (t *IPReservationTable) GetKeyFrom(o interface{}) (map[string]*dynamodb.Att
 		return nil, types.ErrKeyNotSet
 	}
 
-	netValue, err := dynamodbattribute.Marshal(obj.IP.IP.Mask(obj.IP.Mask))
+	net := obj.IP.IP.Mask(obj.IP.Mask)
+	if v4IP := net.To4(); v4IP != nil {
+		net = v4IP
+	}
+	netValue, err := dynamodbattribute.Marshal(net)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
 	}
-	ipValue, err := dynamodbattribute.Marshal(obj.IP.IP)
+
+	ip := obj.IP.IP
+	if v4IP := obj.IP.IP.To4(); v4IP != nil {
+		ip = v4IP
+	}
+	ipValue, err := dynamodbattribute.Marshal(ip)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
 	}
@@ -79,11 +88,20 @@ func (t *IPReservationTable) GetItemQueryInputFrom(o interface{}) (*dynamodb.Que
 		return nil, types.ErrKeyNotSet
 	}
 
-	netValue, err := dynamodbattribute.Marshal(obj.IP.IP.Mask(obj.IP.Mask))
+	net := obj.IP.IP.Mask(obj.IP.Mask)
+	if v4IP := net.To4(); v4IP != nil {
+		net = v4IP
+	}
+	netValue, err := dynamodbattribute.Marshal(net)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
 	}
-	ipValue, err := dynamodbattribute.Marshal(obj.IP.IP)
+
+	ip := obj.IP.IP
+	if v4IP := obj.IP.IP.To4(); v4IP != nil {
+		ip = v4IP
+	}
+	ipValue, err := dynamodbattribute.Marshal(ip)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
 	}
