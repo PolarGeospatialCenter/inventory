@@ -141,7 +141,7 @@ func (r *IPReservation) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValu
 }
 
 func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if v, ok := av.M["HostInformation"]; ok {
+	if v, ok := av.M["HostInformation"]; ok && v.NULL == nil {
 		r.HostInformation = v.String()
 	}
 
@@ -162,11 +162,11 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 		r.IP = n
 	}
 
-	if v, ok := av.M["Start"]; ok {
+	if v, ok := av.M["Start"]; ok && v.NULL == nil {
 		log.Print(v)
 	}
 
-	if v, ok := av.M["End"]; ok {
+	if v, ok := av.M["End"]; ok && v.NULL == nil {
 		log.Print(v)
 	}
 
