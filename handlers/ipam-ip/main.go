@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"time"
@@ -15,24 +14,9 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/azenk/iputils"
 )
-
-type IpamIpRequest struct {
-	Name      string        `json:"name"`
-	Subnet    string        `json:"subnet"`
-	HwAddress string        `json:"mac"`
-	TTL       time.Duration `json:"ttl"`
-}
-
-type IpamIpResponse struct {
-	IP      string
-	Gateway net.IP
-	DNS     []net.IP
-	Start   time.Time
-	End     time.Time
-}
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
@@ -62,20 +46,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrNotFound("No reservation found for that IP")
 	}
 
-	// build IP response
-	response := &IpamIpResponse{}
-	response.IP = reservation.IP.String()
-	if reservation.Start != nil {
-		response.Start = *reservation.Start
-	}
-	if reservation.End != nil {
-		response.End = *reservation.End
-	}
-
-	response.DNS = subnet.DNS
-	response.Gateway = subnet.Gateway
-
-	return lambdautils.SimpleOKResponse(response)
+	return lambdautils.SimpleOKResponse(createResponseFromReservation(*reservation, subnet))
 }
 
 func lookupSubnetForIP(inv *inventory.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
@@ -95,29 +66,16 @@ func lookupSubnetForIP(inv *inventory.DynamoDBStore, ip net.IP) (*types.Subnet, 
 
 }
 
-// PostHandler handles POST method requests from the API gateway
-func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	ipamRequest := &IpamIpRequest{}
-	err := json.Unmarshal([]byte(request.Body), ipamRequest)
+// PutHandler handles POST method requests from the API gateway
+func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	ipReservation := &types.IPReservation{}
+	err := json.Unmarshal([]byte(request.Body), ipReservation)
 	if err != nil {
 		log.Printf("Unable to parse request: %v", err)
 		return lambdautils.ErrBadRequest("Unable to parse request")
 	}
 
 	ipAddress := request.PathParameters["ipAddress"]
-
-	if ipamRequest.HwAddress == "" && ipAddress == "" {
-		return lambdautils.ErrBadRequest("must specify a mac or IP address to create a reservation")
-	}
-
-	var mac net.HardwareAddr
-	if ipamRequest.HwAddress != "" {
-		mac, err = net.ParseMAC(ipamRequest.HwAddress)
-		if err != nil {
-			return lambdautils.ErrBadRequest("invalid MAC address")
-		}
-	}
-
 	ip := net.ParseIP(ipAddress)
 	if ip == nil && ipAddress != "" {
 		return lambdautils.ErrBadRequest("invalid IP address")
@@ -126,108 +84,201 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
-	r := &types.IPReservation{}
-
-	// if an IP is specified, check for active reservation - if already exists and mac doesn't match, return conflict
-	// if no IP is specified, create a new reservation using the mac address
-	start := time.Now()
-	end := start.Add(ipamRequest.TTL)
-
-	r.Start = &start
-	r.End = &end
-
-	if mac != nil {
-		r.MAC = mac
+	existingReservation := &types.IPReservation{}
+	existingReservation.IP = ipReservation.IP
+	err = inv.Get(existingReservation)
+	if err != nil && err == inventory.ErrObjectNotFound {
+		lambdautils.ErrNotFound()
+	} else if err != nil {
+		log.Printf("unexpected error getting reservation for '%s': %v", ipReservation.IP, err)
+		lambdautils.ErrInternalServerError()
 	}
 
+	err = inv.UpdateIPReservation(ipReservation)
+	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+		return lambdautils.ErrStringResponse(http.StatusBadRequest, "unable to update reservation, the mac may not match the existing reservation or the reservation may no longer exist")
+	} else if err != nil {
+		log.Printf("error updating reservation: %v", err)
+		return lambdautils.ErrInternalServerError()
+	}
+
+	subnet, err := lookupSubnetForIP(inv, ipReservation.IP.IP)
+	if err != nil {
+		log.Printf("Unable to lookup subnet for IP.  This shouldn't happen unless a subnet has been deleted.  %v", err)
+		return lambdautils.ErrInternalServerError("Unable to lookup subnet for IP.  This shouldn't happen unless a subnet has been deleted.")
+	}
+
+	return lambdautils.SimpleOKResponse(createResponseFromReservation(*ipReservation, subnet))
+}
+
+// DeleteHandler handles POST method requests from the API gateway
+func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	ipReservation := &types.IPReservation{}
+	err := json.Unmarshal([]byte(request.Body), ipReservation)
+	if err != nil {
+		log.Printf("Unable to parse request: %v", err)
+		return lambdautils.ErrBadRequest("Unable to parse request")
+	}
+
+	ipAddress := request.PathParameters["ipAddress"]
+	ip := net.ParseIP(ipAddress)
+	if ip == nil && ipAddress != "" {
+		return lambdautils.ErrBadRequest("invalid IP address")
+	}
+
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	err = inv.Delete(ipReservation)
+	if err != nil {
+		log.Printf("error updating reservation: %v", err)
+		return lambdautils.ErrInternalServerError()
+	}
+	return lambdautils.SimpleOKResponse(nil)
+}
+
+// PostHandler handles POST method requests from the API gateway
+func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
+	ipamRequest := &types.IpamIpRequest{}
+	err := json.Unmarshal([]byte(request.Body), ipamRequest)
+	if err != nil {
+		log.Printf("Unable to parse request: %v", err)
+		return lambdautils.ErrBadRequest("Unable to parse request")
+	}
+
+	ipAddress := request.PathParameters["ipAddress"]
+	ip := net.ParseIP(ipAddress)
+	if ip == nil && ipAddress != "" {
+		return lambdautils.ErrBadRequest("invalid IP address")
+	}
+
+	r, err := createIPReservationFromRequest(ipamRequest, ipAddress)
+	if err != nil {
+		log.Printf("got bad request: %v", err)
+		return lambdautils.ErrBadRequest(err.Error())
+	}
+
+	var subnetLookupIP net.IP
 	if ip != nil {
-		subnet, err := lookupSubnetForIP(inv, ip)
-		if err != nil {
-			log.Printf("unable to lookup subnet for IP %s: %v", r.IP.String(), err)
-			return lambdautils.ErrInternalServerError("consult logs for details")
-		}
-		log.Printf("Subnet: %v", subnet)
-		r.IP = &net.IPNet{IP: ip, Mask: subnet.Cidr.Mask}
-
-		// Try to get it
-		res, err := inv.GetIPReservation(r.IP)
-		log.Print(res, err)
-		if err != nil && err != inventory.ErrObjectNotFound {
-			log.Printf("unexpected error while looking up existing reservation: %v", err)
-			return lambdautils.ErrInternalServerError()
-		} else if err == nil {
-			return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this ip already exists")
-		}
-	}
-
-	if r.IP == nil && mac != nil {
-		// don't have an IP yet, but we have a mac, let's try to look up a matching node
-		node, err := inv.GetNodeByMAC(mac)
-		if err == nil {
-			// Found a node
-			for _, network := range node.Networks {
-				if network.MAC != nil && mac.String() == network.MAC.String() && network.IP != nil {
-					subnet, err := lookupSubnetForIP(inv, network.IP)
-					if err != nil {
-						log.Printf("unable to lookup subnet for IP %s: %v", r.IP.String(), err)
-						return lambdautils.ErrInternalServerError("consult logs for details")
-					}
-					log.Printf("Subnet: %v", subnet)
-					r.IP = &net.IPNet{IP: network.IP, Mask: subnet.Cidr.Mask}
-					break
-				}
-			}
-		}
-	}
-
-	if ipamRequest.Subnet != "" {
-		subnetIP := net.ParseIP(ipamRequest.Subnet)
-		if subnetIP == nil {
-			subnetIP, _, err = net.ParseCIDR(ipamRequest.Subnet)
+		subnetLookupIP = ip
+	} else if ipamRequest.Subnet != "" {
+		subnetLookupIP = net.ParseIP(ipamRequest.Subnet)
+		if subnetLookupIP == nil {
+			subnetLookupIP, _, err = net.ParseCIDR(ipamRequest.Subnet)
 			if err != nil {
 				return lambdautils.ErrBadRequest("provided subnet address is invalid")
 			}
 		}
-
-		subnet, err := lookupSubnetForIP(inv, subnetIP)
-		if err != nil {
-			log.Printf("unable to lookup subnet for IP %s: %v", r.IP.String(), err)
-			return lambdautils.ErrNotFound("unable to find matching subnet, please update your request and try again")
-		}
-
-		startOffset, ipLength := subnet.Cidr.Mask.Size()
-		networkIP, err := iputils.SetBits(subnet.Cidr.IP, uint64(0), uint(startOffset), uint(ipLength-startOffset))
-		broadcastIP, err := iputils.SetBits(subnet.Cidr.IP, uint64(0xffffffffffffffff), uint(startOffset), uint(ipLength-startOffset))
-
-		for r.IP == nil {
-			// choose IP at random until we find a free one
-			randomHostPart := rand.Uint64()
-			candidateIP, err := iputils.SetBits(subnet.Cidr.IP, randomHostPart, uint(startOffset), uint(ipLength-startOffset))
-			if err != nil {
-				log.Printf("unexpected error building ip: %v", err)
-				return lambdautils.ErrInternalServerError()
-			}
-			if candidateIP.To4() != nil && (candidateIP.Equal(networkIP) || candidateIP.Equal(broadcastIP)) {
-				continue
-			}
-			r.IP = &net.IPNet{IP: candidateIP, Mask: subnet.Cidr.Mask}
-			_, err = inv.GetIPReservation(r.IP)
-			if err != nil && err != inventory.ErrObjectNotFound {
-				log.Printf("unexpected error while looking up existing reservation: %v", err)
-				return lambdautils.ErrInternalServerError()
-			} else if err == nil {
-				r.IP = nil
-			}
-		}
-
 	}
-	err = inv.CreateIPReservation(r)
+
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	inv := inventory.NewDynamoDBStore(db, nil)
+
+	// Lookup subnet for this request
+	subnet, err := lookupSubnetForIP(inv, subnetLookupIP)
 	if err != nil {
-		log.Printf("error creating reservation: %v", err)
-		return lambdautils.ErrInternalServerError()
+		log.Printf("unable to lookup subnet for IP %s: %v", r.IP.String(), err)
+		return lambdautils.ErrInternalServerError("consult logs for details")
 	}
 
-	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, r)
+	r.IP = subnet.Cidr
+
+	if ip != nil {
+		r.IP.IP = ip
+
+		err = inv.CreateIPReservation(r)
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+			return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this ip address already exists")
+		} else if err != nil {
+			log.Printf("error creating reservation: %v", err)
+			return lambdautils.ErrInternalServerError()
+		}
+
+	} else {
+		existingReservation, err := getExistingReservationInSubnet(inv, subnet.Cidr, r.MAC)
+		if err != nil {
+			log.Printf("unexpected error getting existing reservation for %s: %v", r.MAC, err)
+			return lambdautils.ErrInternalServerError()
+		}
+
+		if existingReservation != nil {
+			return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac address already exists in this subnet")
+		}
+
+		for {
+			err = r.SetRandomIP()
+			if err != nil {
+				return lambdautils.ErrInternalServerError()
+			}
+
+			err = inv.CreateIPReservation(r)
+			if err == nil {
+				break
+			} else if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {
+				log.Printf("error creating reservation: %v", err)
+				return lambdautils.ErrInternalServerError()
+			}
+
+		}
+	}
+
+	return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, createResponseFromReservation(*r, subnet))
+}
+
+func createResponseFromReservation(res types.IPReservation, subnet *types.Subnet) *types.IpamIpResponse {
+	response := &types.IpamIpResponse{IPReservation: res}
+	response.DNS = subnet.DNS
+	response.Gateway = subnet.Gateway
+	return response
+}
+
+func createIPReservationFromRequest(req *types.IpamIpRequest, ipAddress string) (*types.IPReservation, error) {
+	r := &types.IPReservation{}
+
+	if req.Subnet == "" && ipAddress == "" {
+		return nil, fmt.Errorf("must specify a subnet or IP address to create a reservation")
+	}
+
+	if req.HwAddress != "" {
+		mac, err := net.ParseMAC(req.HwAddress)
+		if err != nil {
+			return nil, fmt.Errorf("invalid MAC address")
+		}
+		r.MAC = mac
+	}
+
+	start := time.Now()
+	r.Start = &start
+
+	if req.TTL != "" {
+		ttl, err := time.ParseDuration(req.TTL)
+		if err != nil {
+			log.Printf("unable to parse provided ttl '%s': %v", req.TTL, err)
+			return nil, fmt.Errorf("if a ttl is provided it must be a golang duration string")
+		}
+		end := start.Add(ttl)
+		r.End = &end
+	}
+
+	if req.Subnet != "" && ipAddress == "" && r.MAC == nil && r.End == nil {
+		return nil, fmt.Errorf("all dynamic reservations must include a MAC address or a TTL")
+	}
+
+	return r, nil
+}
+
+func getExistingReservationInSubnet(inv *inventory.DynamoDBStore, subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
+	reservations, err := inv.GetIPReservations(subnetCidr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range reservations {
+		if r.MAC.String() == mac.String() {
+			return r, nil
+		}
+	}
+	return nil, nil
 }
 
 // Handler handles requests for nodes
@@ -237,6 +288,10 @@ func Handler(ctx context.Context, request events.APIGatewayProxyRequest) (*event
 		return GetHandler(ctx, request)
 	case http.MethodPost:
 		return PostHandler(ctx, request)
+	case http.MethodPut:
+		return PutHandler(ctx, request)
+	case http.MethodDelete:
+		return DeleteHandler(ctx, request)
 	default:
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusNotImplemented, map[string]string{}, fmt.Errorf("not implemented"))
 	}

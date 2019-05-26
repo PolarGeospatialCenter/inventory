@@ -61,6 +61,13 @@ func runTest(t *testing.T, h testHandler) {
 		t.Errorf("unable to create test record: %v", err)
 	}
 
+	nodeIP, nodeMask, _ := net.ParseCIDR("10.0.0.7/24")
+	nodeMask.IP = nodeIP
+	err = inv.Update(&types.IPReservation{IP: nodeMask, MAC: testMac})
+	if err != nil {
+		t.Errorf("Error reserving IP for test node: %v", err)
+	}
+
 	gwIp, gw, err := net.ParseCIDR("10.0.0.1/24")
 	if err != nil {
 		t.Errorf("Error parsing gw addr: %v", err)
@@ -111,14 +118,14 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 			t.Fatalf("Expected created status, got: %d", response.StatusCode)
 		}
 
-		reservation := &IpamIpResponse{}
+		reservation := &types.IpamIpResponse{}
 		err = json.Unmarshal([]byte(response.Body), reservation)
 		if err != nil {
 			t.Fatalf("Unable to parse response: %v", err)
 		}
 
 		_, expectedNet, _ := net.ParseCIDR("10.0.0.0/24")
-		reservedIP, _, _ := net.ParseCIDR(reservation.IP)
+		reservedIP := reservation.IP.IP
 		if !expectedNet.Contains(reservedIP) {
 			t.Errorf("Reserved IP in wrong subnet: %s", reservation.IP)
 		}
@@ -128,29 +135,20 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 
 func TestCreateReservationKnownHost(t *testing.T) {
 	runTest(t, func(handlerCtx context.Context, t *testing.T) {
-		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Should return the IP reserved for that host.
+		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Sound return a conflict.
 		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{
 			HTTPMethod: http.MethodPost,
 			Body: `
 			{
-				"mac": "00:01:02:03:04:05"
+				"mac": "00:01:02:03:04:05",
+				"subnet": "10.0.0.0"
 			}`,
 		})
 		if err != nil {
 			t.Fatalf("Unexpected error creating reservation for unknown host: %v", err)
 		}
-		if response.StatusCode != http.StatusCreated {
-			t.Fatalf("Expected created status, got: %d", response.StatusCode)
-		}
-
-		reservation := &IpamIpResponse{}
-		err = json.Unmarshal([]byte(response.Body), reservation)
-		if err != nil {
-			t.Fatalf("Unable to parse response: %v", err)
-		}
-
-		if reservation.IP != "10.0.0.7/24" {
-			t.Errorf("Wrong IP reserved: %s", reservation.IP)
+		if response.StatusCode != http.StatusConflict {
+			t.Fatalf("Expected conflict status, got: %d", response.StatusCode)
 		}
 	})
 }
@@ -173,14 +171,14 @@ func TestCreateReservationStaticReservation(t *testing.T) {
 			t.Fatalf("Expected created status, got: %d", response.StatusCode)
 		}
 
-		reservation := &IpamIpResponse{}
+		reservation := &types.IpamIpResponse{}
 		err = json.Unmarshal([]byte(response.Body), reservation)
 		if err != nil {
 			t.Log(response.Body)
 			t.Fatalf("Unable to parse response: %v", err)
 		}
 
-		if reservation.IP != "10.0.0.2/24" {
+		if reservation.IP.String() != "10.0.0.2/24" {
 			t.Errorf("Wrong IP reserved: %s", reservation.IP)
 		}
 	})

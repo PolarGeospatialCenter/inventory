@@ -444,8 +444,97 @@ func (db *DynamoDBStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReservatio
 	return r, err
 }
 
+// GetIPReservations returns all current reservations in the specified subnet
+func (db *DynamoDBStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReservation, error) {
+	table := db.tableMap.LookupTable(&types.IPReservation{})
+	if table == nil {
+		return nil, fmt.Errorf("No table found for object of type %T", &types.IPReservation{})
+	}
+
+	if ipNet == nil {
+		return nil, fmt.Errorf("specified network is nil")
+	}
+
+	netValue, err := dynamodbattribute.Marshal(ipNet.IP.Mask(ipNet.Mask))
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal object id for deletion: %v", err)
+	}
+
+	queryValues := map[string]*dynamodb.AttributeValue{":partitionkeyval": netValue}
+
+	queryString := "net=:partitionkeyval"
+	q := &dynamodb.QueryInput{
+		TableName:                 aws.String(table.GetName()),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
+	}
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*types.IPReservation, len(results.Items))
+
+	err = dynamodbattribute.UnmarshalListOfMaps(results.Items, &out)
+
+	return out, err
+}
+
 func (db *DynamoDBStore) CreateIPReservation(r *types.IPReservation) error {
-	return db.Update(r)
+	table := db.tableMap.LookupTable(r)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", r)
+	}
+	putItem := &dynamodb.PutItemInput{}
+	putItem.SetTableName(table.GetName())
+	item, err := dynamodbattribute.MarshalMap(r)
+	if err != nil {
+		return err
+	}
+	putItem.Item = item
+
+	keyMap, err := table.GetKeyFrom(r)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
+
+	putItem.SetConditionExpression("attribute_not_exists(net) and attribute_not_exists(ip)")
+	_, err = db.db.PutItem(putItem)
+	return err
+}
+
+func (db *DynamoDBStore) UpdateIPReservation(r *types.IPReservation) error {
+	table := db.tableMap.LookupTable(r)
+	if table == nil {
+		return fmt.Errorf("No table found for object of type %T", r)
+	}
+	putItem := &dynamodb.PutItemInput{}
+	putItem.SetTableName(table.GetName())
+	item, err := dynamodbattribute.MarshalMap(r)
+	if err != nil {
+		return err
+	}
+	putItem.Item = item
+
+	keyMap, err := table.GetKeyFrom(r)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
+
+	putItem.SetConditionExpression("attribute_exists(net) and attribute_exists(ip) and MAC = :mac")
+	macAddress, err := dynamodbattribute.Marshal(r.MAC)
+	putItem.SetExpressionAttributeValues(map[string]*dynamodb.AttributeValue{":mac": macAddress})
+	_, err = db.db.PutItem(putItem)
+	return err
 }
 
 func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {

@@ -2,12 +2,15 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/azenk/iputils"
 )
 
 type IPReservation struct {
@@ -16,6 +19,30 @@ type IPReservation struct {
 	MAC             net.HardwareAddr
 	Start           *time.Time
 	End             *time.Time
+}
+
+func (r *IPReservation) SetRandomIP() error {
+	startOffset, ipLength := r.IP.Mask.Size()
+	networkIP, _ := iputils.SetBits(r.IP.IP, uint64(0), uint(startOffset), uint(ipLength-startOffset))
+	broadcastIP, _ := iputils.SetBits(r.IP.IP, uint64(0xffffffffffffffff), uint(startOffset), uint(ipLength-startOffset))
+
+	rand.Seed(time.Now().UnixNano())
+	var allocatedIP *net.IPNet
+	maxCount := 1 << uint(ipLength-startOffset)
+	for count := 0; allocatedIP == nil && count < maxCount; count++ {
+		// choose IP at random until we find a free one
+		randomHostPart := rand.Uint64()
+		candidateIP, err := iputils.SetBits(r.IP.IP, randomHostPart, uint(startOffset), uint(ipLength-startOffset))
+		if err != nil {
+			return fmt.Errorf("unexpected error building ip: %v", err)
+		}
+		if candidateIP.To4() != nil && (candidateIP.Equal(networkIP) || candidateIP.Equal(broadcastIP)) {
+			continue
+		}
+		allocatedIP = &net.IPNet{IP: candidateIP, Mask: r.IP.Mask}
+	}
+	r.IP = allocatedIP
+	return nil
 }
 
 // ValidAt returns true if an IPReservation is valid at the time specified
@@ -45,6 +72,32 @@ func (r *IPReservation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// UnmarshalJSON implements Unmarshaler interface so that cidr can be directly
+// read from a string
+func (r *IPReservation) UnmarshalJSON(data []byte) error {
+	type Alias IPReservation
+	v := &struct {
+		*Alias
+		IP  string
+		MAC string
+	}{
+		Alias: (*Alias)(r),
+	}
+	err := json.Unmarshal(data, v)
+	if err != nil {
+		return err
+	}
+	ip, cidr, err := net.ParseCIDR(v.IP)
+	cidr.IP = ip
+	r.IP = cidr
+	if err != nil {
+		return err
+	}
+
+	mac, err := net.ParseMAC(v.MAC)
+	r.MAC = mac
+	return err
+}
 func (r *IPReservation) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	av.M = make(map[string]*dynamodb.AttributeValue, 0)
 
