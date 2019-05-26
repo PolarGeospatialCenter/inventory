@@ -530,9 +530,14 @@ func (db *DynamoDBStore) UpdateIPReservation(r *types.IPReservation) error {
 		putItem.Item[k] = v
 	}
 
-	putItem.SetConditionExpression("attribute_exists(net) and attribute_exists(ip) and MAC = :mac")
-	macAddress, err := dynamodbattribute.Marshal(r.MAC)
-	putItem.SetExpressionAttributeValues(map[string]*dynamodb.AttributeValue{":mac": macAddress})
+	putItem.SetConditionExpression("net = :net and ip = :ip and MAC = :mac")
+	macAddress, err := dynamodbattribute.Marshal(r.MAC.String())
+	if err != nil {
+		return err
+	}
+	keyAttributes, err := table.GetKeyFrom(r)
+
+	putItem.SetExpressionAttributeValues(map[string]*dynamodb.AttributeValue{":mac": macAddress, ":net": keyAttributes["net"], ":ip": keyAttributes["ip"]})
 	_, err = db.db.PutItem(putItem)
 	return err
 }

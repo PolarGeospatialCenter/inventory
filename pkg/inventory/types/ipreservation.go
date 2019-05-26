@@ -111,14 +111,17 @@ func (r *IPReservation) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	ip, cidr, err := net.ParseCIDR(v.IP)
-	if err != nil {
-		return err
-	}
-	cidr.IP = ip
-	r.IP = cidr
-	if err != nil {
-		return err
+
+	if v.IP != "" {
+		ip, cidr, err := net.ParseCIDR(v.IP)
+		if err != nil {
+			return err
+		}
+		cidr.IP = ip
+		r.IP = cidr
+		if err != nil {
+			return err
+		}
 	}
 
 	mac, err := net.ParseMAC(v.MAC)

@@ -84,6 +84,13 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
+	subnet, err := lookupSubnetForIP(inv, ip)
+	if err != nil {
+		log.Printf("unable to lookup subnet for IP %s: %v", ipAddress, err)
+		return lambdautils.ErrInternalServerError("consult logs for details")
+	}
+	ipReservation.IP = &net.IPNet{IP: ip, Mask: subnet.Cidr.Mask}
+
 	existingReservation := &types.IPReservation{}
 	existingReservation.IP = ipReservation.IP
 	err = inv.Get(existingReservation)
@@ -100,12 +107,6 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	} else if err != nil {
 		log.Printf("error updating reservation: %v", err)
 		return lambdautils.ErrInternalServerError()
-	}
-
-	subnet, err := lookupSubnetForIP(inv, ipReservation.IP.IP)
-	if err != nil {
-		log.Printf("Unable to lookup subnet for IP.  This shouldn't happen unless a subnet has been deleted.  %v", err)
-		return lambdautils.ErrInternalServerError("Unable to lookup subnet for IP.  This shouldn't happen unless a subnet has been deleted.")
 	}
 
 	ipReservation.SetSubnetInformation(subnet)

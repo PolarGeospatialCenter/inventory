@@ -101,6 +101,49 @@ func compareResponse(t *testing.T, response *events.APIGatewayProxyResponse, exp
 		}
 	}
 }
+func TestUpdateReservationUnknownHost(t *testing.T) {
+	runTest(t, func(handlerCtx context.Context, t *testing.T) {
+		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Should return an IP from the subnet.
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{
+			HTTPMethod:     http.MethodPut,
+			PathParameters: map[string]string{"ipAddress": "10.0.0.7"},
+			Body: `
+			{
+				"mac": "00:01:02:03:04:05",
+				"start": null,
+				"end": null
+			}`,
+		})
+		if err != nil {
+			t.Fatalf("Unexpected error creating reservation for unknown host: %v", err)
+		}
+		if response.StatusCode != http.StatusOK {
+			t.Log(response.Body)
+			t.Fatalf("Expected created status, got: %d", response.StatusCode)
+		}
+
+		reservation := &types.IPReservation{}
+		err = json.Unmarshal([]byte(response.Body), reservation)
+		if err != nil {
+			t.Fatalf("Unable to parse response: %v", err)
+		}
+
+		_, expectedNet, _ := net.ParseCIDR("10.0.0.0/24")
+		if !expectedNet.Contains(reservation.IP.IP) {
+			t.Errorf("Reserved IP in wrong subnet: %s", reservation.IP)
+		}
+
+		t.Log(reservation)
+		if reservation.Start != nil {
+			t.Errorf("Got non-nil start time")
+		}
+
+		if reservation.End != nil {
+			t.Errorf("Got non-nil end time")
+		}
+
+	})
+}
 
 func TestCreateReservationUnknownHost(t *testing.T) {
 	runTest(t, func(handlerCtx context.Context, t *testing.T) {
