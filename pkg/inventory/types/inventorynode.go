@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-
-	"github.com/PolarGeospatialCenter/inventory/pkg/ipam"
 )
 
 type NetworkDB interface {
@@ -105,14 +103,6 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 				config.Append(ip, subnet.DNS, &subnet.Gateway)
 				continue
 			}
-
-			ip, dns, gateway, err := subnet.GetNicConfig(node)
-			if err == ipam.ErrAllocationNotImplemented {
-				continue
-			} else if err != nil {
-				return nil, err
-			}
-			config.Append(ip, dns, &gateway)
 		}
 
 		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network, Config: *config}
