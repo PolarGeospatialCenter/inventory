@@ -10,6 +10,7 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbstore"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
@@ -554,6 +555,19 @@ func (db *DynamoDBStore) UpdateIPReservation(r *types.IPReservation) error {
 	putItem.SetExpressionAttributeValues(map[string]*dynamodb.AttributeValue{":mac": macAddress, ":net": keyAttributes["net"], ":ip": keyAttributes["ip"]})
 	_, err = db.db.PutItem(putItem)
 	return err
+}
+
+func (db *DynamoDBStore) CreateOrUpdateIPReservation(r *types.IPReservation) error {
+	err := db.UpdateIPReservation(r)
+	if err == nil {
+		return nil
+	}
+
+	if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {
+		return err
+	}
+
+	return db.CreateIPReservation(r)
 }
 
 func (db *DynamoDBStore) GetNodes() (map[string]*types.Node, error) {
