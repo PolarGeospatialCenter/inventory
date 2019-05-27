@@ -188,6 +188,16 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrInternalServerError("consult logs for details")
 	}
 
+	existingReservation, err := inv.GetExistingIPReservationInSubnet(subnet.Cidr, r.MAC)
+	if err != nil {
+		log.Printf("unexpected error getting existing reservation for %s: %v", r.MAC, err)
+		return lambdautils.ErrInternalServerError()
+	}
+
+	if existingReservation != nil {
+		return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac address already exists in this subnet")
+	}
+
 	r.IP = subnet.Cidr
 
 	if ip != nil {
@@ -202,15 +212,6 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		}
 
 	} else {
-		existingReservation, err := getExistingReservationInSubnet(inv, subnet.Cidr, r.MAC)
-		if err != nil {
-			log.Printf("unexpected error getting existing reservation for %s: %v", r.MAC, err)
-			return lambdautils.ErrInternalServerError()
-		}
-
-		if existingReservation != nil {
-			return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac address already exists in this subnet")
-		}
 
 		for {
 			err = r.SetRandomIP()
@@ -244,20 +245,6 @@ func parseIPOrCidr(ipString string) net.IP {
 		return ip
 	}
 	return nil
-}
-
-func getExistingReservationInSubnet(inv *inventory.DynamoDBStore, subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
-	reservations, err := inv.GetIPReservations(subnetCidr)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, r := range reservations {
-		if r.MAC.String() == mac.String() {
-			return r, nil
-		}
-	}
-	return nil, nil
 }
 
 // Handler handles requests for nodes
