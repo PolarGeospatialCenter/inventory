@@ -40,6 +40,7 @@ func (cases TestCases) RunTests(t *testing.T, handler func(context.Context, even
 		err = c.ResponseEqual(t, response)
 		if err != nil {
 			t.Logf("Test parameters: %s -- path params: %v -- query: %s -- body: '%s'", request.HTTPMethod, request.PathParameters, queryValues.Encode(), request.Body)
+			t.Logf("Response: %s", response.Body)
 			t.Errorf("FAILED: %s -- %v", name, err)
 		} else {
 			t.Logf("PASSED: %s", name)
