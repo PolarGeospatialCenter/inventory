@@ -131,6 +131,13 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	inv := inventory.NewDynamoDBStore(db, nil)
 
+	subnet, err := lookupSubnetForIP(inv, ip)
+	if err != nil {
+		log.Printf("unable to lookup subnet for IP %s: %v", ipAddress, err)
+		return lambdautils.ErrInternalServerError("consult logs for details")
+	}
+	ipReservation.IP = &net.IPNet{IP: ip, Mask: subnet.Cidr.Mask}
+
 	err = inv.Delete(ipReservation)
 	if err != nil {
 		log.Printf("error updating reservation: %v", err)
