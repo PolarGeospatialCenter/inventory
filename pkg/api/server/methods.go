@@ -12,9 +12,9 @@ import (
 
 // InventoryDatabase defines the interface we're expecting for the inventory
 type InventoryDatabase interface {
-	Exists(inventory.InventoryObject) (bool, error)
-	Update(inventory.InventoryObject) error
-	Delete(inventory.InventoryObject) error
+	Exists(interface{}) (bool, error)
+	Update(interface{}) error
+	Delete(interface{}) error
 }
 
 // UpdateObject updates an object
