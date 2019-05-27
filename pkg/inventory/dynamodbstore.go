@@ -481,6 +481,20 @@ func (db *DynamoDBStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReserva
 	return out, err
 }
 
+func (db *DynamoDBStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
+	reservations, err := db.GetIPReservations(subnetCidr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, r := range reservations {
+		if r.MAC.String() == mac.String() {
+			return r, nil
+		}
+	}
+	return nil, nil
+}
+
 func (db *DynamoDBStore) CreateIPReservation(r *types.IPReservation) error {
 	table := db.tableMap.LookupTable(r)
 	if table == nil {
