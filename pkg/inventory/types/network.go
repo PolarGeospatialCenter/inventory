@@ -1,6 +1,7 @@
 package types
 
 import (
+	"net"
 	"time"
 )
 
@@ -27,4 +28,14 @@ func (n *Network) Timestamp() int64 {
 
 func (n *Network) SetTimestamp(timestamp time.Time) {
 	n.LastUpdated = timestamp
+}
+
+func (n *Network) GetSubnetContainingIP(ip net.IP) *Subnet {
+	for _, subnet := range n.Subnets {
+		if subnet.Cidr.Contains(ip) {
+			return subnet
+		}
+	}
+
+	return nil
 }

@@ -11,6 +11,7 @@ import (
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
@@ -209,6 +210,12 @@ func TestPutHandler(t *testing.T) {
 		t.Errorf("unable to initialize tables")
 	}
 
+	testNet := &types.Network{Name: "testnet"}
+	err = inv.Update(testNet)
+	if err != nil {
+		t.Fatalf("unable to create test network: %v", err)
+	}
+
 	node := testNode()
 
 	nodeJson, err := json.Marshal(node)
@@ -230,7 +237,7 @@ func TestPutHandler(t *testing.T) {
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
-			Name: "Update node object",
+			Name: "Create new node",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod: http.MethodPost,
 				Body:       string(nodeJson),
@@ -241,9 +248,21 @@ func TestPutHandler(t *testing.T) {
 			},
 		},
 		testutils.TestCase{Ctx: handlerCtx,
-			Name: "Get updated node",
+			Name: "Update node object",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:     http.MethodPut,
+				PathParameters: map[string]string{"nodeId": "testnode"},
+				Body:           string(updatedNodeJson),
+			},
+			TestResult: &testutils.TestResult{
+				ExpectedBodyObject: updatedNode,
+				ExpectedStatus:     http.StatusOK,
+			},
+		},
+		testutils.TestCase{Ctx: handlerCtx,
+			Name: "Get updated node",
+			Request: events.APIGatewayProxyRequest{
+				HTTPMethod:     http.MethodGet,
 				PathParameters: map[string]string{"nodeId": "testnode"},
 				Body:           string(updatedNodeJson),
 			},
@@ -280,7 +299,25 @@ func TestPostHandler(t *testing.T) {
 		t.Errorf("unable to initialize tables")
 	}
 
+	testNet := &types.Network{
+		Name: "testnet",
+		Subnets: types.SubnetList{
+			&types.Subnet{
+				Cidr: &net.IPNet{
+					IP:   net.ParseIP("10.0.0.1"),
+					Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0x00),
+				},
+				AllocationMethod: "static_inventory",
+			},
+		},
+	}
+	err = inv.Update(testNet)
+	if err != nil {
+		t.Fatalf("unable to create test network: %v", err)
+	}
+
 	node := testNode()
+	node.InventoryID = "testnode-002"
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
 
@@ -288,6 +325,8 @@ func TestPostHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to marshal node json: %v", err)
 	}
+
+	node.Networks["testnet"].IP = net.ParseIP("10.0.0.2")
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,
