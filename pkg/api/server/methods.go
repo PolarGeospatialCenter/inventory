@@ -28,7 +28,7 @@ func UpdateObject(inv InventoryDatabase, obj inventory.InventoryObject, id strin
 	case exists:
 		break
 	case !exists && err == nil:
-		return lambdautils.ErrNotFound(err.Error())
+		return lambdautils.ErrNotFound()
 	default:
 		return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
 	}
