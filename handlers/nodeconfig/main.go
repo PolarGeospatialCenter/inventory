@@ -6,19 +6,16 @@ import (
 	"net/http"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if nodeId, ok := request.PathParameters["nodeId"]; ok {
 		// looking up an individual node

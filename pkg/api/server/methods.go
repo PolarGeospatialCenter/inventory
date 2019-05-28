@@ -1,13 +1,15 @@
 package server
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
 
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // InventoryDatabase defines the interface we're expecting for the inventory
@@ -17,8 +19,20 @@ type InventoryDatabase interface {
 	Delete(interface{}) error
 }
 
+type InventoryObject interface {
+	ID() string
+	Timestamp() int64
+	SetTimestamp(time.Time)
+}
+
+// ConnectToInventoryFromContext creates a dynamodb inventory client from credentials attached to the context
+func ConnectToInventoryFromContext(ctx context.Context) *dynamodbclient.DynamoDBStore {
+	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
+	return dynamodbclient.NewDynamoDBStore(db, nil)
+}
+
 // UpdateObject updates an object
-func UpdateObject(inv InventoryDatabase, obj inventory.InventoryObject, id string) (*events.APIGatewayProxyResponse, error) {
+func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*events.APIGatewayProxyResponse, error) {
 	if obj.ID() != id {
 		return lambdautils.ErrBadRequest("ID of updated object must match the id specified in the request.")
 	}
@@ -46,7 +60,7 @@ func UpdateObject(inv InventoryDatabase, obj inventory.InventoryObject, id strin
 }
 
 // CreateObject creates an object
-func CreateObject(inv InventoryDatabase, obj inventory.InventoryObject) (*events.APIGatewayProxyResponse, error) {
+func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewayProxyResponse, error) {
 	exists, err := inv.Exists(obj)
 	switch {
 	case exists:
@@ -70,7 +84,7 @@ func CreateObject(inv InventoryDatabase, obj inventory.InventoryObject) (*events
 }
 
 // DeleteObject deletes an object
-func DeleteObject(inv InventoryDatabase, obj inventory.InventoryObject) (*events.APIGatewayProxyResponse, error) {
+func DeleteObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewayProxyResponse, error) {
 	exists, err := inv.Exists(obj)
 	switch {
 	case exists:
@@ -92,7 +106,7 @@ func DeleteObject(inv InventoryDatabase, obj inventory.InventoryObject) (*events
 // GetObjectResponse looks up the appropriate response for object
 func GetObjectResponse(obj interface{}, err error) (*events.APIGatewayProxyResponse, error) {
 	switch err {
-	case inventory.ErrObjectNotFound:
+	case dynamodbclient.ErrObjectNotFound:
 		return lambdautils.ErrNotFound(err.Error())
 	case nil:
 		return lambdautils.SimpleOKResponse(obj)

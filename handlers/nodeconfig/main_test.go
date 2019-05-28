@@ -8,7 +8,7 @@ import (
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
@@ -26,7 +26,7 @@ func TestGetHandler(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {

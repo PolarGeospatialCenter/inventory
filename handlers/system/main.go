@@ -6,19 +6,16 @@ import (
 	"net/http"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if systemID, ok := request.PathParameters["systemId"]; ok {
 		system, err := inv.GetSystemByID(systemID)
@@ -53,8 +50,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrBadRequest("Body should contain a valid system.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.UpdateObject(inv, updatedSystem, systemId)
 }
@@ -73,8 +69,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrBadRequest("Body should contain a valid system.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.CreateObject(inv, newSystem)
 }
@@ -87,8 +82,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	}
 	system := &inventorytypes.System{Name: systemId}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.DeleteObject(inv, system)
 }

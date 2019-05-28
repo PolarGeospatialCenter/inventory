@@ -6,18 +6,15 @@ import (
 	"net/http"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if networkID, ok := request.PathParameters["networkId"]; ok {
 		network, err := inv.GetNetworkByID(networkID)
@@ -52,8 +49,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrBadRequest("Body should contain a valid network.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.UpdateObject(inv, updatedNetwork, networkId)
 }
@@ -72,8 +68,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrBadRequest("Body should contain a valid network.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.CreateObject(inv, newNetwork)
 }
@@ -86,8 +81,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	}
 	network := &inventorytypes.Network{Name: networkId}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.DeleteObject(inv, network)
 }
