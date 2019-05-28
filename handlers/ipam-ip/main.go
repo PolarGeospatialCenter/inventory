@@ -8,7 +8,8 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
@@ -30,8 +31,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrBadRequest("Bad IP address")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	// lookup network and subnet
 	subnet, err := lookupSubnetForIP(inv, ipAddress)
@@ -49,7 +49,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	return lambdautils.SimpleOKResponse(reservation)
 }
 
-func lookupSubnetForIP(inv *inventory.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
+func lookupSubnetForIP(inv *dynamodbclient.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
 	networks, err := inv.GetNetworks()
 	if err != nil {
 		return nil, err
@@ -81,8 +81,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrBadRequest("invalid IP address")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	subnet, err := lookupSubnetForIP(inv, ip)
 	if err != nil {
@@ -94,7 +93,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	existingReservation := &types.IPReservation{}
 	existingReservation.IP = ipReservation.IP
 	err = inv.Get(existingReservation)
-	if err != nil && err == inventory.ErrObjectNotFound {
+	if err != nil && err == dynamodbclient.ErrObjectNotFound {
 		lambdautils.ErrNotFound()
 	} else if err != nil {
 		log.Printf("unexpected error getting reservation for '%s': %v", ipReservation.IP, err)
@@ -128,8 +127,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 		return lambdautils.ErrBadRequest("invalid IP address")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	subnet, err := lookupSubnetForIP(inv, ip)
 	if err != nil {
@@ -178,8 +176,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrBadRequest("provided subnet address is invalid")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	// Lookup subnet for this request
 	subnet, err := lookupSubnetForIP(inv, subnetLookupIP)

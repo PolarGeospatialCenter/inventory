@@ -10,7 +10,7 @@ import (
 
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
@@ -42,7 +42,7 @@ func TestGetHandler(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {
@@ -157,7 +157,7 @@ func TestGetHandlerNullEntries(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {
@@ -203,7 +203,7 @@ func TestPutHandler(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {
@@ -292,7 +292,7 @@ func TestPostHandler(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {
@@ -362,7 +362,7 @@ func TestDeleteHandler(t *testing.T) {
 	defer dbInstance.Stop(ctx)
 
 	db := dynamodb.New(session.New(dbInstance.Config()))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := dynamodbclient.NewDynamoDBStore(db, nil)
 
 	err = inv.InitializeTables()
 	if err != nil {

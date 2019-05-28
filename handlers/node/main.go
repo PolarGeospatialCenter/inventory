@@ -10,21 +10,19 @@ import (
 	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/ipam"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if nodeId, ok := request.PathParameters["nodeId"]; ok {
 		return server.GetObjectResponse(inv.GetNodeByID(nodeId))
@@ -71,11 +69,10 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrBadRequest("Body should contain a valid node.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	existingNode, err := inv.GetNodeByID(updatedNode.ID())
-	if err != nil && err == inventory.ErrObjectNotFound {
+	if err != nil && err == dynamodbclient.ErrObjectNotFound {
 		return lambdautils.ErrNotFound("unable to find existing record for this node")
 	} else if err != nil {
 		log.Printf("error retrieving existing node %s: %v", updatedNode.ID(), err)
@@ -154,8 +151,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrBadRequest("Body should contain a valid node.")
 	}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	for netname, nic := range newNode.Networks {
 		if nic.IP == nil && nic.MAC == nil {
@@ -163,7 +159,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		}
 
 		network, err := inv.GetNetworkByID(netname)
-		if err != nil && err == inventory.ErrObjectNotFound {
+		if err != nil && err == dynamodbclient.ErrObjectNotFound {
 			return lambdautils.ErrBadRequest(fmt.Sprintf("%s is not a valid network name", netname))
 		} else if err != nil {
 			log.Printf("unable to lookup network for nic '%v' on network '%s': %v", nic, netname, err)
@@ -232,8 +228,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	}
 	node := &inventorytypes.Node{InventoryID: nodeId}
 
-	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
-	inv := inventory.NewDynamoDBStore(db, nil)
+	inv := server.ConnectToInventoryFromContext(ctx)
 
 	return server.DeleteObject(inv, node)
 }

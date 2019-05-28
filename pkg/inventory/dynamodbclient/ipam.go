@@ -1,4 +1,4 @@
-package dynamodbstore
+package dynamodbclient
 
 import (
 	"fmt"
