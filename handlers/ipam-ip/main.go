@@ -40,7 +40,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		return lambdautils.ErrInternalServerError("consult logs for details")
 	}
 
-	reservation, err := inv.GetIPReservation(&net.IPNet{IP: ipAddress, Mask: subnet.Cidr.Mask})
+	reservation, err := inv.IPReservation().GetIPReservation(&net.IPNet{IP: ipAddress, Mask: subnet.Cidr.Mask})
 	if err != nil {
 		return lambdautils.ErrNotFound("No reservation found for that IP")
 	}
@@ -50,7 +50,7 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 }
 
 func lookupSubnetForIP(inv *dynamodbclient.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
-	networks, err := inv.GetNetworks()
+	networks, err := inv.Network().GetNetworks()
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func lookupSubnetForIP(inv *dynamodbclient.DynamoDBStore, ip net.IP) (*types.Sub
 
 }
 
-// PutHandler handles POST method requests from the API gateway
+// PutHandler handles PUT method requests from the API gateway
 func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	ipReservation := &types.IPReservation{}
 	err := json.Unmarshal([]byte(request.Body), ipReservation)
@@ -90,9 +90,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	}
 	ipReservation.IP = &net.IPNet{IP: ip, Mask: subnet.Cidr.Mask}
 
-	existingReservation := &types.IPReservation{}
-	existingReservation.IP = ipReservation.IP
-	err = inv.Get(existingReservation)
+	_, err = inv.IPReservation().GetIPReservation(ipReservation.IP)
 	if err != nil && err == dynamodbclient.ErrObjectNotFound {
 		lambdautils.ErrNotFound()
 	} else if err != nil {
@@ -100,7 +98,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 		lambdautils.ErrInternalServerError()
 	}
 
-	err = inv.UpdateIPReservation(ipReservation)
+	err = inv.IPReservation().UpdateIPReservation(ipReservation)
 	if aerr, ok := err.(awserr.Error); ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
 		return lambdautils.ErrStringResponse(http.StatusBadRequest, "unable to update reservation, the mac may not match the existing reservation or the reservation may no longer exist")
 	} else if err != nil {
@@ -136,7 +134,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	}
 	ipReservation.IP = &net.IPNet{IP: ip, Mask: subnet.Cidr.Mask}
 
-	err = inv.Delete(ipReservation)
+	err = inv.IPReservation().Delete(ipReservation)
 	if err != nil {
 		log.Printf("error updating reservation: %v", err)
 		return lambdautils.ErrInternalServerError()
@@ -185,7 +183,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrInternalServerError("consult logs for details")
 	}
 
-	existingReservation, err := inv.GetExistingIPReservationInSubnet(subnet.Cidr, r.MAC)
+	existingReservation, err := inv.IPReservation().GetExistingIPReservationInSubnet(subnet.Cidr, r.MAC)
 	if err != nil {
 		log.Printf("unexpected error getting existing reservation for %s: %v", r.MAC, err)
 		return lambdautils.ErrInternalServerError()
@@ -200,7 +198,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 	if ip != nil {
 		r.IP.IP = ip
 
-		err = inv.CreateIPReservation(r)
+		err = inv.IPReservation().CreateIPReservation(r)
 		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
 			return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this ip address already exists")
 		} else if err != nil {
@@ -216,7 +214,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 				return lambdautils.ErrInternalServerError()
 			}
 
-			err = inv.CreateIPReservation(r)
+			err = inv.IPReservation().CreateIPReservation(r)
 			if err == nil {
 				break
 			} else if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {

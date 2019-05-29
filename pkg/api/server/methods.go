@@ -14,9 +14,10 @@ import (
 
 // InventoryDatabase defines the interface we're expecting for the inventory
 type InventoryDatabase interface {
-	Exists(interface{}) (bool, error)
-	Update(interface{}) error
-	Delete(interface{}) error
+	ObjExists(interface{}) (bool, error)
+	ObjUpdate(interface{}) error
+	ObjDelete(interface{}) error
+	ObjCreate(interface{}) error
 }
 
 type InventoryObject interface {
@@ -37,7 +38,7 @@ func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*event
 		return lambdautils.ErrBadRequest("ID of updated object must match the id specified in the request.")
 	}
 
-	exists, err := inv.Exists(obj)
+	exists, err := inv.ObjExists(obj)
 	switch {
 	case exists:
 		break
@@ -51,7 +52,7 @@ func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*event
 		obj.SetTimestamp(time.Now())
 	}
 
-	err = inv.Update(obj)
+	err = inv.ObjUpdate(obj)
 	if err == nil {
 		return lambdautils.SimpleOKResponse(obj)
 	}
@@ -61,7 +62,7 @@ func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*event
 
 // CreateObject creates an object
 func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewayProxyResponse, error) {
-	exists, err := inv.Exists(obj)
+	exists, err := inv.ObjExists(obj)
 	switch {
 	case exists:
 		return lambdautils.ErrStringResponse(http.StatusConflict, "An object with that id already exists.")
@@ -75,7 +76,7 @@ func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 		obj.SetTimestamp(time.Now())
 	}
 
-	err = inv.Update(obj)
+	err = inv.ObjCreate(obj)
 	if err == nil {
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, obj)
 	}
@@ -85,7 +86,7 @@ func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 
 // DeleteObject deletes an object
 func DeleteObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewayProxyResponse, error) {
-	exists, err := inv.Exists(obj)
+	exists, err := inv.ObjExists(obj)
 	switch {
 	case exists:
 		break
@@ -95,7 +96,7 @@ func DeleteObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 		return lambdautils.ErrInternalServerError()
 	}
 
-	err = inv.Delete(obj)
+	err = inv.ObjDelete(obj)
 	if err == nil {
 		return lambdautils.SimpleOKResponse("")
 	}

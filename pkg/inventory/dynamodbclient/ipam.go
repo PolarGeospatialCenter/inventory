@@ -120,3 +120,77 @@ func (t *IPReservationTable) GetItemQueryInputFrom(o interface{}) (*dynamodb.Que
 func (t *IPReservationTable) GetPartitionKeyName() string {
 	return "net"
 }
+
+func (t *IPReservationTable) Create(db *DynamoDBStore, obj interface{}) error {
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return ErrInvalidObjectType
+	}
+
+	table := db.tableMap.LookupTable(r)
+	if table == nil {
+		return ErrInvalidObjectType
+	}
+
+	putItem := &dynamodb.PutItemInput{}
+	putItem.SetTableName(table.GetName())
+	item, err := dynamodbattribute.MarshalMap(r)
+	if err != nil {
+		return err
+	}
+	putItem.Item = item
+
+	keyMap, err := table.GetKeyFrom(r)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
+
+	putItem.SetConditionExpression("attribute_not_exists(net) and attribute_not_exists(ip)")
+	_, err = db.db.PutItem(putItem)
+	return err
+}
+
+func (t *IPReservationTable) Update(db *DynamoDBStore, obj interface{}) error {
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return ErrInvalidObjectType
+	}
+
+	table := db.tableMap.LookupTable(r)
+	if table == nil {
+		// This should be impossible here, but _shrug_
+		return ErrInvalidObjectType
+	}
+
+	putItem := &dynamodb.PutItemInput{}
+	putItem.SetTableName(table.GetName())
+	item, err := dynamodbattribute.MarshalMap(r)
+	if err != nil {
+		return err
+	}
+	putItem.Item = item
+
+	keyMap, err := table.GetKeyFrom(r)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
+
+	putItem.SetConditionExpression("net = :net and ip = :ip and MAC = :mac")
+	macAddress, err := dynamodbattribute.Marshal(r.MAC.String())
+	if err != nil {
+		return err
+	}
+	keyAttributes, err := table.GetKeyFrom(r)
+
+	putItem.SetExpressionAttributeValues(map[string]*dynamodb.AttributeValue{":mac": macAddress, ":net": keyAttributes["net"], ":ip": keyAttributes["ip"]})
+	_, err = db.db.PutItem(putItem)
+	return err
+}

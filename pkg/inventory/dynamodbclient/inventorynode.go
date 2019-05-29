@@ -7,18 +7,22 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 )
 
-func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, error) {
-	nodes, err := db.GetNodes()
+type InventoryNodeStore struct {
+	*DynamoDBStore
+}
+
+func (db *InventoryNodeStore) GetInventoryNodes() (map[string]*types.InventoryNode, error) {
+	nodes, err := db.Node().GetNodes()
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup nodes: %v", err)
 	}
 
-	networks, err := db.GetNetworks()
+	networks, err := db.Network().GetNetworks()
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup networks: %v", err)
 	}
 
-	systems, err := db.GetSystems()
+	systems, err := db.System().GetSystems()
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup systems: %v", err)
 	}
@@ -34,20 +38,20 @@ func (db *DynamoDBStore) GetInventoryNodes() (map[string]*types.InventoryNode, e
 	return out, nil
 }
 
-func (db *DynamoDBStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
-	node, err := db.GetNodeByID(id)
+func (db *InventoryNodeStore) GetInventoryNodeByID(id string) (*types.InventoryNode, error) {
+	node, err := db.Node().GetNodeByID(id)
 	if err != nil {
 		return nil, err
 	}
 
-	return types.NewInventoryNode(node, db, db)
+	return types.NewInventoryNode(node, db.Network(), db.System())
 }
 
-func (db *DynamoDBStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.InventoryNode, error) {
-	node, err := db.GetNodeByMAC(mac)
+func (db *InventoryNodeStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.InventoryNode, error) {
+	node, err := db.Node().GetNodeByMAC(mac)
 	if err != nil {
 		return nil, err
 	}
 
-	return types.NewInventoryNode(node, db, db)
+	return types.NewInventoryNode(node, db.Network(), db.System())
 }

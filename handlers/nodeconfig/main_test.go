@@ -45,11 +45,6 @@ func TestGetHandler(t *testing.T) {
 		"testnetwork": &inventorytypes.NICInfo{MAC: testMac},
 	}
 
-	err = inv.Update(node)
-	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
-	}
-
 	network := inventorytypes.NewNetwork()
 	network.Name = "testnetwork"
 	network.MTU = 1500
@@ -60,7 +55,7 @@ func TestGetHandler(t *testing.T) {
 	_, testsubnet, _ := net.ParseCIDR("10.0.0.0/24")
 	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Cidr: testsubnet}}
 
-	err = inv.Update(network)
+	err = inv.Network().Create(network)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)
 	}
@@ -79,7 +74,12 @@ func TestGetHandler(t *testing.T) {
 	}
 	system.Metadata = inventorytypes.Metadata{}
 
-	err = inv.Update(system)
+	err = inv.System().Create(system)
+	if err != nil {
+		t.Errorf("unable to create test record: %v", err)
+	}
+
+	err = inv.Node().Create(node)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)
 	}

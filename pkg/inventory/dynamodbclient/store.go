@@ -3,7 +3,6 @@ package dynamodbclient
 import (
 	"fmt"
 
-	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -60,42 +59,15 @@ func (db *DynamoDBStore) createTable(table DynamoDBStoreTable) error {
 	return err
 }
 
-func (db *DynamoDBStore) Update(obj interface{}) error {
-	// log.Printf("Updating %s: %d", obj.ID(), obj.Timestamp())
+func (db *DynamoDBStore) update(obj interface{}) error {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
-		return fmt.Errorf("No table found for object of type %T", obj)
+		return ErrInvalidObjectType
 	}
+
 	putItem := &dynamodb.PutItemInput{}
 	putItem.SetTableName(table.GetName())
-
-	switch o := obj.(type) {
-	case *types.Node:
-		node := obj.(*types.Node)
-		putItem.Item, _ = dynamodbattribute.MarshalMap(node)
-
-		existingMacIndices, err := db.GetMacIndexEntriesByNodeID(node.ID())
-		if err != nil {
-			return fmt.Errorf("unable to lookup existing mac index entries: %v", err)
-		}
-
-		for _, nic := range node.Networks {
-			if nic.MAC != nil {
-				db.Update(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: node.LastUpdated, NodeID: node.ID()})
-				delete(existingMacIndices, nic.MAC.String())
-			}
-		}
-
-		for _, oldMacIndex := range existingMacIndices {
-			err := db.Delete(oldMacIndex)
-			if err != nil {
-				return fmt.Errorf("unable to delete previous mac index entry: %v", err)
-			}
-		}
-	default:
-		putItem.Item, _ = dynamodbattribute.MarshalMap(o)
-	}
-
+	putItem.Item, _ = dynamodbattribute.MarshalMap(obj)
 	keyMap, err := table.GetKeyFrom(obj)
 	if err != nil {
 		return err
@@ -105,16 +77,34 @@ func (db *DynamoDBStore) Update(obj interface{}) error {
 		putItem.Item[k] = v
 	}
 
-	// log.Print(putItem.TableName)
 	_, err = db.db.PutItem(putItem)
+	return err
+}
+
+func (db *DynamoDBStore) create(obj interface{}) error {
+	table := db.tableMap.LookupTable(obj)
+	if table == nil {
+		return ErrInvalidObjectType
+	}
+
+	putItem := &dynamodb.PutItemInput{}
+	putItem.SetTableName(table.GetName())
+	putItem.Item, _ = dynamodbattribute.MarshalMap(obj)
+	keyMap, err := table.GetKeyFrom(obj)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	for k, v := range keyMap {
+		putItem.Item[k] = v
+	}
+
+	_, err = db.db.PutItem(putItem)
+	return err
 }
 
 // Delete deletes the inventory object from dynamodb
-func (db *DynamoDBStore) Delete(obj interface{}) error {
+func (db *DynamoDBStore) delete(obj interface{}) error {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
 		return fmt.Errorf("No table found for object of type %T", obj)
@@ -162,10 +152,10 @@ func (db *DynamoDBStore) getAll(out interface{}) error {
 	return nil
 }
 
-func (db *DynamoDBStore) Get(obj interface{}) error {
+func (db *DynamoDBStore) get(obj interface{}) error {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
-		return fmt.Errorf("No table found for object of type %T", obj)
+		return ErrInvalidObjectType
 	}
 
 	q, err := table.GetItemQueryInputFrom(obj)
@@ -195,7 +185,7 @@ func (db *DynamoDBStore) Get(obj interface{}) error {
 	return nil
 }
 
-func (db *DynamoDBStore) Exists(obj interface{}) (bool, error) {
+func (db *DynamoDBStore) exists(obj interface{}) (bool, error) {
 	table := db.tableMap.LookupTable(obj)
 	if table == nil {
 		return false, fmt.Errorf("No table found for object of type %T", obj)
@@ -214,4 +204,28 @@ func (db *DynamoDBStore) Exists(obj interface{}) (bool, error) {
 	}
 
 	return len(results.Items) != 0, nil
+}
+
+func (db *DynamoDBStore) Node() *NodeStore {
+	return &NodeStore{DynamoDBStore: db}
+}
+
+func (db *DynamoDBStore) InventoryNode() *InventoryNodeStore {
+	return &InventoryNodeStore{DynamoDBStore: db}
+}
+
+func (db *DynamoDBStore) Network() *NetworkStore {
+	return &NetworkStore{DynamoDBStore: db}
+}
+
+func (db *DynamoDBStore) System() *SystemStore {
+	return &SystemStore{DynamoDBStore: db}
+}
+
+func (db *DynamoDBStore) nodeMacIndex() *nodeMacIndexStore {
+	return &nodeMacIndexStore{DynamoDBStore: db}
+}
+
+func (db *DynamoDBStore) IPReservation() *IPReservationStore {
+	return &IPReservationStore{DynamoDBStore: db}
 }

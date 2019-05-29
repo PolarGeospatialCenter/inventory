@@ -24,7 +24,11 @@ func (i *NodeMacIndexEntry) SetTimestamp(timestamp time.Time) {
 	i.LastUpdated = timestamp
 }
 
-func (db *DynamoDBStore) GetMacIndexEntriesByNodeID(id string) (map[string]*NodeMacIndexEntry, error) {
+type nodeMacIndexStore struct {
+	*DynamoDBStore
+}
+
+func (db *nodeMacIndexStore) GetMacIndexEntriesByNodeID(id string) (map[string]*NodeMacIndexEntry, error) {
 	allMacs := make([]*NodeMacIndexEntry, 0, 0)
 	err := db.getAll(&allMacs)
 	if err != nil {
@@ -38,4 +42,12 @@ func (db *DynamoDBStore) GetMacIndexEntriesByNodeID(id string) (map[string]*Node
 		}
 	}
 	return results, nil
+}
+
+func (db *nodeMacIndexStore) Create(e *NodeMacIndexEntry) error {
+	return db.DynamoDBStore.create(e)
+}
+
+func (db *nodeMacIndexStore) Delete(e *NodeMacIndexEntry) error {
+	return db.DynamoDBStore.delete(e)
 }

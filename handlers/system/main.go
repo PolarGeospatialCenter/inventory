@@ -18,12 +18,12 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if systemID, ok := request.PathParameters["systemId"]; ok {
-		system, err := inv.GetSystemByID(systemID)
+		system, err := inv.System().GetSystemByID(systemID)
 		return server.GetObjectResponse(system, err)
 	}
 
 	if len(request.PathParameters) == 0 && len(request.QueryStringParameters) == 0 {
-		systemMap, err := inv.GetSystems()
+		systemMap, err := inv.System().GetSystems()
 		systems := make([]*inventorytypes.System, 0, len(systemMap))
 		if err == nil {
 			for _, n := range systemMap {
@@ -52,7 +52,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.UpdateObject(inv, updatedSystem, systemId)
+	return server.UpdateObject(inv.System(), updatedSystem, systemId)
 }
 
 // PostHandler updates the specified system record
@@ -71,7 +71,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.CreateObject(inv, newSystem)
+	return server.CreateObject(inv.System(), newSystem)
 }
 
 // DeleteHandler updates the specified system record
@@ -84,7 +84,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.DeleteObject(inv, system)
+	return server.DeleteObject(inv.System(), system)
 }
 
 // Handler handles requests for systems
