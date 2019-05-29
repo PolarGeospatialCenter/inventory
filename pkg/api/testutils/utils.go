@@ -32,19 +32,18 @@ func (cases TestCases) RunTests(t *testing.T, handler func(context.Context, even
 			name = c.Name
 		}
 
-		response, err := handler(c.Ctx, request)
-		if err != nil {
-			t.Errorf("error occurred while testing handler: %v", err)
-			continue
-		}
-		err = c.ResponseEqual(t, response)
-		if err != nil {
-			t.Logf("Test parameters: %s -- path params: %v -- query: %s -- body: '%s'", request.HTTPMethod, request.PathParameters, queryValues.Encode(), request.Body)
-			t.Logf("Response: %s", response.Body)
-			t.Errorf("FAILED: %s -- %v", name, err)
-		} else {
-			t.Logf("PASSED: %s", name)
-		}
+		t.Run(name, func(st *testing.T) {
+			response, err := handler(c.Ctx, request)
+			if err != nil {
+				st.Fatalf("error occurred while testing handler: %v", err)
+			}
+			err = c.ResponseEqual(st, response)
+			if err != nil {
+				st.Logf("Test parameters: %s -- path params: %v -- query: %s -- body: '%s'", request.HTTPMethod, request.PathParameters, queryValues.Encode(), request.Body)
+				st.Logf("Response: %s", response.Body)
+				st.Errorf("FAILED: %s -- %v", name, err)
+			}
+		})
 	}
 }
 
