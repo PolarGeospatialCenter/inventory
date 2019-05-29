@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"time"
 )
@@ -35,7 +34,6 @@ func (req *IpamIpRequest) Reservation(ip net.IP) (*IPReservation, error) {
 	if req.TTL != "" {
 		ttl, err := time.ParseDuration(req.TTL)
 		if err != nil {
-			log.Printf("unable to parse provided ttl '%s': %v", req.TTL, err)
 			return nil, fmt.Errorf("if a ttl is provided it must be a golang duration string")
 		}
 		end := start.Add(ttl)
