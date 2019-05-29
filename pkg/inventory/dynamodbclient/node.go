@@ -92,13 +92,6 @@ func (db *NodeStore) Update(updatedNode *types.Node) error {
 		return fmt.Errorf("unable to lookup existing mac index entries: %v", err)
 	}
 
-	for _, nic := range updatedNode.Networks {
-		if nic.MAC != nil {
-			db.nodeMacIndex().Create(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: updatedNode.LastUpdated, NodeID: updatedNode.ID()})
-			delete(existingMacIndices, nic.MAC.String())
-		}
-	}
-
 	for _, oldMacIndex := range existingMacIndices {
 		err := db.nodeMacIndex().Delete(oldMacIndex)
 		if err != nil {
@@ -129,6 +122,11 @@ func (db *NodeStore) Update(updatedNode *types.Node) error {
 	}
 
 	for netname, nic := range updatedNode.Networks {
+		if nic.MAC != nil {
+			db.nodeMacIndex().Create(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: updatedNode.LastUpdated, NodeID: updatedNode.ID()})
+			delete(existingMacIndices, nic.MAC.String())
+		}
+
 		if existingNic, ok := existingNode.Networks[netname]; ok &&
 			existingNic.IP.String() == nic.IP.String() &&
 			existingNic.MAC.String() == nic.MAC.String() {
