@@ -191,6 +191,31 @@ func (db *NodeStore) Exists(node *types.Node) (bool, error) {
 }
 
 func (db *NodeStore) Delete(node *types.Node) error {
+	for netname, nic := range node.Networks {
+		if nic.MAC != nil {
+			err := db.nodeMacIndex().Delete(&NodeMacIndexEntry{Mac: nic.MAC})
+			if err != nil {
+				return fmt.Errorf("error removing mac index entry (%s) for this node: %v", nic.MAC.String(), err)
+			}
+		}
+
+		if nic.IP != nil {
+			network, err := db.Network().GetNetworkByID(netname)
+			if err != nil {
+				return fmt.Errorf("error getting networks: %v", err)
+			}
+
+			reservation, err := generateIPReservation(node, network)
+			if err != nil {
+				return fmt.Errorf("unexpected error while creating reservation for node '%s' on network '%s': %v", node.InventoryID, network.ID(), err)
+			}
+
+			err = db.IPReservation().Delete(reservation)
+			if err != nil {
+				return fmt.Errorf("error deleting reservation for ip '%s': %v", nic.IP.String(), err)
+			}
+		}
+	}
 	return db.DynamoDBStore.delete(node)
 }
 
