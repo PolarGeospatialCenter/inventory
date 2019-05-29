@@ -49,10 +49,15 @@ func TestGetHandler(t *testing.T) {
 		t.Errorf("unable to initialize tables")
 	}
 
-	node := testNode()
-	err = inv.Update(node)
+	err = inv.Network().Create(&types.Network{Name: "testnet"})
 	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
+		t.Fatalf("unable to create network: %v", err)
+	}
+
+	node := testNode()
+	err = inv.Node().Create(node)
+	if err != nil {
+		t.Fatalf("unable to create test record: %v", err)
 	}
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
@@ -164,8 +169,13 @@ func TestGetHandlerNullEntries(t *testing.T) {
 		t.Errorf("unable to initialize tables")
 	}
 
+	err = inv.Network().Create(&types.Network{Name: "testnet"})
+	if err != nil {
+		t.Fatalf("unable to create network: %v", err)
+	}
+
 	node := &inventorytypes.Node{InventoryID: "test-0034"}
-	err = inv.Update(node)
+	err = inv.Node().Create(node)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)
 	}
@@ -211,7 +221,7 @@ func TestPutHandler(t *testing.T) {
 	}
 
 	testNet := &types.Network{Name: "testnet"}
-	err = inv.Update(testNet)
+	err = inv.Network().Update(testNet)
 	if err != nil {
 		t.Fatalf("unable to create test network: %v", err)
 	}
@@ -311,7 +321,7 @@ func TestPostHandler(t *testing.T) {
 			},
 		},
 	}
-	err = inv.Update(testNet)
+	err = inv.Network().Update(testNet)
 	if err != nil {
 		t.Fatalf("unable to create test network: %v", err)
 	}
@@ -369,9 +379,14 @@ func TestDeleteHandler(t *testing.T) {
 		t.Errorf("unable to initialize tables")
 	}
 
+	err = inv.Network().Create(&types.Network{Name: "testnet"})
+	if err != nil {
+		t.Fatalf("unable to create network: %v", err)
+	}
+
 	node := testNode()
 
-	err = inv.Update(node)
+	err = inv.Node().Create(node)
 	if err != nil {
 		t.Errorf("unable to create test record: %v", err)
 	}

@@ -19,12 +19,12 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 
 	if nodeId, ok := request.PathParameters["nodeId"]; ok {
 		// looking up an individual node
-		node, err := inv.GetInventoryNodeByID(nodeId)
+		node, err := inv.InventoryNode().GetInventoryNodeByID(nodeId)
 		return server.GetObjectResponse(node, err)
 	}
 
 	if len(request.QueryStringParameters) == 0 {
-		nodeMap, err := inv.GetInventoryNodes()
+		nodeMap, err := inv.InventoryNode().GetInventoryNodes()
 		nodes := make([]*inventorytypes.InventoryNode, 0, len(nodeMap))
 		if err == nil {
 			for _, n := range nodeMap {
@@ -40,10 +40,10 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 			return lambdautils.ErrBadRequest(err.Error())
 		}
 
-		node, err := inv.GetInventoryNodeByMAC(mac)
+		node, err := inv.InventoryNode().GetInventoryNodeByMAC(mac)
 		return server.GetObjectResponse([]*inventorytypes.InventoryNode{node}, err)
 	} else if nodeID, ok := request.QueryStringParameters["id"]; ok {
-		node, err := inv.GetInventoryNodeByID(nodeID)
+		node, err := inv.InventoryNode().GetInventoryNodeByID(nodeID)
 		return server.GetObjectResponse([]*inventorytypes.InventoryNode{node}, err)
 	}
 

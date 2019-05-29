@@ -17,5 +17,8 @@ type DynamoDBStoreTable interface {
 }
 
 var (
-	ErrObjectNotFound = errors.New("Object not found")
+	ErrObjectNotFound    = errors.New("Object not found")
+	ErrUpdateConflict    = errors.New("Unable to update object due to conflict")
+	ErrAlreadyExists     = errors.New("Unable to create. Object already exists")
+	ErrInvalidObjectType = errors.New("Unsupported object type")
 )

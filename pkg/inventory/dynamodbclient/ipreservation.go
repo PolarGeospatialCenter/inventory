@@ -13,7 +13,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-func (db *DynamoDBStore) generateIPReservation(node *types.Node, network *types.Network) (*types.IPReservation, error) {
+type IPReservationStore struct {
+	*DynamoDBStore
+}
+
+func (db *IPReservationStore) generateIPReservation(node *types.Node, network *types.Network) (*types.IPReservation, error) {
 	var ip *net.IPNet
 	nic := node.Networks[network.ID()]
 
@@ -43,16 +47,16 @@ func (db *DynamoDBStore) generateIPReservation(node *types.Node, network *types.
 	return reservation, nil
 }
 
-func (db *DynamoDBStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReservation, error) {
+func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReservation, error) {
 	r := &types.IPReservation{
 		IP: ipNet,
 	}
-	err := db.Get(r)
+	err := db.get(r)
 	return r, err
 }
 
 // GetIPReservations returns all current reservations in the specified subnet
-func (db *DynamoDBStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReservation, error) {
+func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReservation, error) {
 	table := db.tableMap.LookupTable(&types.IPReservation{})
 	if table == nil {
 		return nil, fmt.Errorf("No table found for object of type %T", &types.IPReservation{})
@@ -88,7 +92,7 @@ func (db *DynamoDBStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReserva
 	return out, err
 }
 
-func (db *DynamoDBStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
+func (db *IPReservationStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
 	reservations, err := db.GetIPReservations(subnetCidr)
 	if err != nil {
 		return nil, err
@@ -102,7 +106,7 @@ func (db *DynamoDBStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet,
 	return nil, nil
 }
 
-func (db *DynamoDBStore) CreateIPReservation(r *types.IPReservation) error {
+func (db *IPReservationStore) CreateIPReservation(r *types.IPReservation) error {
 	table := db.tableMap.LookupTable(r)
 	if table == nil {
 		return fmt.Errorf("No table found for object of type %T", r)
@@ -129,7 +133,7 @@ func (db *DynamoDBStore) CreateIPReservation(r *types.IPReservation) error {
 	return err
 }
 
-func (db *DynamoDBStore) UpdateIPReservation(r *types.IPReservation) error {
+func (db *IPReservationStore) UpdateIPReservation(r *types.IPReservation) error {
 	table := db.tableMap.LookupTable(r)
 	if table == nil {
 		return fmt.Errorf("No table found for object of type %T", r)
@@ -163,7 +167,7 @@ func (db *DynamoDBStore) UpdateIPReservation(r *types.IPReservation) error {
 	return err
 }
 
-func (db *DynamoDBStore) CreateOrUpdateIPReservation(r *types.IPReservation) error {
+func (db *IPReservationStore) CreateOrUpdateIPReservation(r *types.IPReservation) error {
 	err := db.UpdateIPReservation(r)
 	if err == nil {
 		return nil
@@ -174,4 +178,36 @@ func (db *DynamoDBStore) CreateOrUpdateIPReservation(r *types.IPReservation) err
 	}
 
 	return db.CreateIPReservation(r)
+}
+
+func (db *IPReservationStore) Delete(r *types.IPReservation) error {
+	return db.DynamoDBStore.delete(r)
+}
+
+func (db *IPReservationStore) ObjExists(obj interface{}) (bool, error) {
+	return db.DynamoDBStore.exists(obj)
+}
+
+func (db *IPReservationStore) ObjCreate(obj interface{}) error {
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return ErrInvalidObjectType
+	}
+	return db.CreateIPReservation(r)
+}
+
+func (db *IPReservationStore) ObjUpdate(obj interface{}) error {
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return ErrInvalidObjectType
+	}
+	return db.UpdateIPReservation(r)
+}
+
+func (db *IPReservationStore) ObjDelete(obj interface{}) error {
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return ErrInvalidObjectType
+	}
+	return db.Delete(r)
 }

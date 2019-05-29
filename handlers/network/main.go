@@ -17,12 +17,12 @@ func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 	inv := server.ConnectToInventoryFromContext(ctx)
 
 	if networkID, ok := request.PathParameters["networkId"]; ok {
-		network, err := inv.GetNetworkByID(networkID)
+		network, err := inv.Network().GetNetworkByID(networkID)
 		return server.GetObjectResponse(network, err)
 	}
 
 	if len(request.PathParameters) == 0 && len(request.QueryStringParameters) == 0 {
-		networkMap, err := inv.GetNetworks()
+		networkMap, err := inv.Network().GetNetworks()
 		networks := make([]*inventorytypes.Network, 0, len(networkMap))
 		if err == nil {
 			for _, n := range networkMap {
@@ -51,7 +51,7 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.UpdateObject(inv, updatedNetwork, networkId)
+	return server.UpdateObject(inv.Network(), updatedNetwork, networkId)
 }
 
 // PostHandler updates the specified network record
@@ -70,7 +70,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.CreateObject(inv, newNetwork)
+	return server.CreateObject(inv.Network(), newNetwork)
 }
 
 // DeleteHandler updates the specified network record
@@ -83,7 +83,7 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	return server.DeleteObject(inv, network)
+	return server.DeleteObject(inv.Network(), network)
 }
 
 // Handler handles requests for nodes

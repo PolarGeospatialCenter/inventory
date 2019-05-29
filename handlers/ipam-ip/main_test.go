@@ -44,11 +44,7 @@ func runTest(t *testing.T, h testHandler) {
 	node.ChassisLocation = &inventorytypes.ChassisLocation{Rack: "xr20", BottomU: 31}
 	node.ChassisSubIndex = "a"
 	node.Networks = map[string]*inventorytypes.NICInfo{
-		"testnet": &inventorytypes.NICInfo{MAC: testMac, IP: net.ParseIP("10.0.0.7")},
-	}
-	err = inv.Update(node)
-	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
+		"testnetwork": &inventorytypes.NICInfo{MAC: testMac, IP: net.ParseIP("10.0.0.7")},
 	}
 
 	network := inventorytypes.NewNetwork()
@@ -57,18 +53,15 @@ func runTest(t *testing.T, h testHandler) {
 	network.Metadata = make(map[string]interface{})
 	_, testsubnet, _ := net.ParseCIDR("10.0.0.0/24")
 	network.Subnets = []*inventorytypes.Subnet{&inventorytypes.Subnet{Name: "testsubnet", Cidr: testsubnet, Gateway: net.ParseIP("10.0.0.1")}}
-	err = inv.Update(network)
+
+	err = inv.Network().Create(network)
 	if err != nil {
-		t.Errorf("unable to create test record: %v", err)
+		t.Errorf("unable to create test network record: %v", err)
 	}
 
-	nodeIP, nodeMask, _ := net.ParseCIDR("10.0.0.7/24")
-	nodeMask.IP = nodeIP
-	now := time.Now()
-	end := now.Add(1 * time.Hour)
-	err = inv.Update(&types.IPReservation{IP: nodeMask, MAC: testMac, Start: &now, End: &end})
+	err = inv.Node().Create(node)
 	if err != nil {
-		t.Errorf("Error reserving IP for test node: %v", err)
+		t.Errorf("unable to create test node record: %v", err)
 	}
 
 	gwIp, gw, err := net.ParseCIDR("10.0.0.1/24")
@@ -76,13 +69,13 @@ func runTest(t *testing.T, h testHandler) {
 		t.Errorf("Error parsing gw addr: %v", err)
 	}
 	gw.IP = gwIp
-	err = inv.Update(&types.IPReservation{IP: gw, Start: &now})
+	now := time.Now()
+	err = inv.IPReservation().CreateIPReservation(&types.IPReservation{IP: gw, Start: &now})
 	if err != nil {
 		t.Errorf("unable to create reservation for gateway: %v", err)
 	}
 
-	gw2 := &types.IPReservation{IP: gw}
-	err = inv.Get(gw2)
+	_, err = inv.IPReservation().GetIPReservation(gw)
 	if err != nil {
 		t.Errorf("unable to get reservation for gateway: %v", err)
 	}
@@ -101,7 +94,7 @@ func compareResponse(t *testing.T, response *events.APIGatewayProxyResponse, exp
 		}
 	}
 }
-func TestUpdateReservationUnknownHost(t *testing.T) {
+func TestUpdateReservationKnownHost(t *testing.T) {
 	runTest(t, func(handlerCtx context.Context, t *testing.T) {
 		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Should return an IP from the subnet.
 		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{
@@ -235,8 +228,8 @@ func TestGetReservationKnownHost(t *testing.T) {
 			t.Errorf("Got nil start time")
 		}
 
-		if r.End == nil {
-			t.Errorf("Got nil end time")
+		if r.End != nil {
+			t.Errorf("Got non-nil end time")
 		}
 	})
 }
