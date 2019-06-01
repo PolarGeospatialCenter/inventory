@@ -21,8 +21,6 @@ phases:
       # Print all environment variables (handy for AWS CodeBuild logs)
       - env
 
-      - go get github.com/golang/dep/cmd/dep
-
   pre_build:
     commands:
 
@@ -38,13 +36,6 @@ phases:
       # Build our go application
       - GOPATH=/go make build
       - aws cloudformation package --template-file template.yml --s3-bucket ${S3_BUCKET} --output-template-file packaged.yml
-
-cache:
-  paths:
-    - vendor/**/*
-    - /go/src/github.com/aws/**/*
-    - /go/src/github.com/hashicorp/**/*
-    - /go/src/gopkg.in/**/*
 
 artifacts:
   files:
