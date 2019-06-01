@@ -45,6 +45,7 @@ func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*event
 	case !exists && err == nil:
 		return lambdautils.ErrNotFound()
 	default:
+		log.Printf("unable to check if object exists '%v': %v", obj, err)
 		return lambdautils.ErrResponse(http.StatusInternalServerError, nil)
 	}
 
@@ -57,6 +58,7 @@ func UpdateObject(inv InventoryDatabase, obj InventoryObject, id string) (*event
 		return lambdautils.SimpleOKResponse(obj)
 	}
 
+	log.Printf("unable to update object '%v': %v", obj, err)
 	return lambdautils.ErrInternalServerError()
 }
 
@@ -69,6 +71,7 @@ func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 	case !exists && err == nil:
 		break
 	default:
+		log.Printf("unable to check if object exists '%v': %v", obj, err)
 		return lambdautils.ErrInternalServerError()
 	}
 
@@ -81,6 +84,7 @@ func CreateObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 		return lambdautils.NewJSONAPIGatewayProxyResponse(http.StatusCreated, map[string]string{}, obj)
 	}
 
+	log.Printf("unable to create object '%v': %v", obj, err)
 	return lambdautils.ErrInternalServerError()
 }
 
@@ -93,6 +97,7 @@ func DeleteObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 	case !exists && err == nil:
 		return lambdautils.ErrNotFound("Objects must exist before you can delete them.")
 	default:
+		log.Printf("unable to check if object exists '%v': %v", obj, err)
 		return lambdautils.ErrInternalServerError()
 	}
 
@@ -101,6 +106,7 @@ func DeleteObject(inv InventoryDatabase, obj InventoryObject) (*events.APIGatewa
 		return lambdautils.SimpleOKResponse("")
 	}
 
+	log.Printf("unable to delete object '%v': %v", obj, err)
 	return lambdautils.ErrInternalServerError()
 }
 
