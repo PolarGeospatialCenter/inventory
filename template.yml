@@ -189,6 +189,15 @@ Resources:
               security:
                 - sigv4: []
           /ipam/ip:
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${IPAMIpAllocation.Arn}/invocations
+              responses: {}
+              security:
+                - sigv4: []
             post:
               x-amazon-apigateway-integration:
                 httpMethod: POST
@@ -499,7 +508,14 @@ Resources:
             Method: get
             RestApiId:
               Ref: SystemDataApi
-        ListEvent:
+        QueryEvent:
+          Type: Api
+          Properties:
+            Path: /ipam/ip
+            Method: get
+            RestApiId:
+              Ref: SystemDataApi
+       ListEvent:
           Type: Api
           Properties:
             Path: /ipam/ip
