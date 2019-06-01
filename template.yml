@@ -515,7 +515,7 @@ Resources:
             Method: get
             RestApiId:
               Ref: SystemDataApi
-       ListEvent:
+        ListEvent:
           Type: Api
           Properties:
             Path: /ipam/ip
