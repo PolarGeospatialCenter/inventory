@@ -42,7 +42,7 @@ func (n *Network) GetSubnetContainingIP(ip net.IP) *Subnet {
 
 // GetNicConfig builds a NicConfig object fo the specified interface on this network
 func (n *Network) GetNicConfig(reservations IPReservationList) *NicConfig {
-	nicConfig := &NicConfig{}
+	nicConfig := NewNicConfig()
 	for _, s := range n.Subnets {
 		for _, r := range reservations {
 			if !s.Cidr.Contains(r.IP.IP) {
