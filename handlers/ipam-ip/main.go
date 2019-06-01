@@ -21,32 +21,63 @@ import (
 // GetHandler handles GET method requests from the API gateway
 func GetHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 
-	ip, ok := request.PathParameters["ipAddress"]
-	if !ok {
-		return lambdautils.ErrBadRequest("You must specify an IP address")
-	}
-
-	ipAddress := net.ParseIP(ip)
-	if ipAddress == nil {
-		return lambdautils.ErrBadRequest("Bad IP address")
+	ip, gotIP := request.PathParameters["ipAddress"]
+	macQuery, gotMAC := request.QueryStringParameters["mac"]
+	if !gotIP && !gotMAC {
+		return lambdautils.ErrBadRequest("You must specify a mac query or an IP address")
 	}
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
-	// lookup network and subnet
-	subnet, err := lookupSubnetForIP(inv, ipAddress)
-	if err != nil {
-		log.Printf("unable to lookup subnet for IP %s: %v", ipAddress, err)
-		return lambdautils.ErrInternalServerError("consult logs for details")
+	if gotIP {
+		ipAddress := net.ParseIP(ip)
+		if ipAddress == nil {
+			return lambdautils.ErrBadRequest("Bad IP address")
+		}
+
+		// lookup network and subnet
+		subnet, err := lookupSubnetForIP(inv, ipAddress)
+		if err != nil {
+			log.Printf("unable to lookup subnet for IP %s: %v", ipAddress, err)
+			return lambdautils.ErrInternalServerError("consult logs for details")
+		}
+
+		reservation, err := inv.IPReservation().GetIPReservation(&net.IPNet{IP: ipAddress, Mask: subnet.Cidr.Mask})
+		if err != nil {
+			return lambdautils.ErrNotFound("No reservation found for that IP")
+		}
+
+		reservation.SetSubnetInformation(subnet)
+		return lambdautils.SimpleOKResponse(reservation)
 	}
 
-	reservation, err := inv.IPReservation().GetIPReservation(&net.IPNet{IP: ipAddress, Mask: subnet.Cidr.Mask})
-	if err != nil {
-		return lambdautils.ErrNotFound("No reservation found for that IP")
+	if gotMAC {
+		mac, err := net.ParseMAC(macQuery)
+		if err != nil {
+			return lambdautils.ErrBadRequest("Bad MAC address")
+		}
+
+		reservations, err := inv.IPReservation().GetIPReservationsByMac(mac)
+		if err != nil {
+			log.Printf("Unable to lookup reservations for mac address '%s': %v", mac.String(), err)
+			return lambdautils.ErrInternalServerError()
+		}
+
+		for _, r := range reservations {
+			subnet, err := lookupSubnetForIP(inv, r.IP.IP)
+			if err != nil {
+				log.Printf("error looking up subnet for ip reservation: %v", err)
+				return lambdautils.ErrInternalServerError()
+			}
+			r.SetSubnetInformation(subnet)
+		}
+		return lambdautils.SimpleOKResponse(reservations)
+
 	}
 
-	reservation.SetSubnetInformation(subnet)
-	return lambdautils.SimpleOKResponse(reservation)
+	log.Printf("Unknown issue getting ip reservations.  This shouldn't happen.")
+	return lambdautils.ErrInternalServerError()
+
 }
 
 func lookupSubnetForIP(inv *dynamodbclient.DynamoDBStore, ip net.IP) (*types.Subnet, error) {
@@ -206,23 +237,13 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 			return lambdautils.ErrInternalServerError()
 		}
 
-	} else {
-
-		for {
-			err = r.SetRandomIP()
-			if err != nil {
-				return lambdautils.ErrInternalServerError()
-			}
-
-			err = inv.IPReservation().CreateIPReservation(r)
-			if err == nil {
-				break
-			} else if aerr, ok := err.(awserr.Error); !ok || aerr.Code() != dynamodb.ErrCodeConditionalCheckFailedException {
-				log.Printf("error creating reservation: %v", err)
-				return lambdautils.ErrInternalServerError()
-			}
-
+	} else if subnet.DynamicAllocationEnabled() {
+		r, err = inv.IPReservation().CreateRandomIPReservation(r, subnet)
+		if err != nil {
+			return lambdautils.ErrInternalServerError()
 		}
+	} else {
+		return lambdautils.ErrBadRequest("unable to allocate an IP in the requested subnet")
 	}
 
 	r.SetSubnetInformation(subnet)

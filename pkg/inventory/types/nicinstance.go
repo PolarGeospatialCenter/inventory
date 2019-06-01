@@ -1,7 +1,7 @@
 package types
 
 type NICInstance struct {
-	Network Network
-	NIC     NICInfo
-	Config  NicConfig
+	Network   Network
+	Interface NetworkInterface
+	Config    NicConfig
 }

@@ -29,7 +29,7 @@ func (db *InventoryNodeStore) GetInventoryNodes() (map[string]*types.InventoryNo
 
 	out := make(map[string]*types.InventoryNode)
 	for _, n := range nodes {
-		iNode, err := types.NewInventoryNode(n, types.NetworkMap(networks), types.SystemMap(systems))
+		iNode, err := types.NewInventoryNode(n, types.NetworkMap(networks), types.SystemMap(systems), db.IPReservation())
 		if err != nil {
 			return nil, fmt.Errorf("unable to compile inventory node: %v", err)
 		}
@@ -44,7 +44,7 @@ func (db *InventoryNodeStore) GetInventoryNodeByID(id string) (*types.InventoryN
 		return nil, err
 	}
 
-	return types.NewInventoryNode(node, db.Network(), db.System())
+	return types.NewInventoryNode(node, db.Network(), db.System(), db.IPReservation())
 }
 
 func (db *InventoryNodeStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*types.InventoryNode, error) {
@@ -53,5 +53,5 @@ func (db *InventoryNodeStore) GetInventoryNodeByMAC(mac net.HardwareAddr) (*type
 		return nil, err
 	}
 
-	return types.NewInventoryNode(node, db.Network(), db.System())
+	return types.NewInventoryNode(node, db.Network(), db.System(), db.IPReservation())
 }

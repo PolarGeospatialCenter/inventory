@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -40,7 +41,7 @@ func (s *stringNICInfo) populateNICInfo(n *NICInfo) error {
 	return nil
 }
 
-type NICInfoMap map[string]*NICInfo
+type NICInfoMap map[string]*NetworkInterface
 
 // NICInfo describes a network interface
 type NICInfo struct {
@@ -84,16 +85,79 @@ func (n *NICInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 func (n *NICInfoMap) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if av.M != nil {
-		ni := make(map[string]*NICInfo, len(av.M))
+	if av.M != nil && len(av.M) > 0 {
+		// try to unmarshal a current NICInfoMap, if that fails, try a legacy one
+		ni := make(map[string]*NetworkInterface, len(av.M))
 		err := dynamodbattribute.UnmarshalMap(av.M, &ni)
 		if err != nil {
-			return err
+			legacyNi := make(map[string]*NICInfo, len(av.M))
+			err := dynamodbattribute.UnmarshalMap(av.M, &legacyNi)
+			if err != nil {
+				return err
+			}
+			for netname, legacyNICInfo := range legacyNi {
+				ni[netname] = &NetworkInterface{NICs: []net.HardwareAddr{legacyNICInfo.MAC}}
+			}
 		}
 		*n = ni
 		return nil
 	} else if av.NULL != nil && *av.NULL {
 		*n = NICInfoMap{}
+	}
+	return nil
+}
+
+type NetworkInterface struct {
+	NICs     []net.HardwareAddr `json:"-" dynamodbav:"nics"`
+	Metadata Metadata
+}
+
+// MarshalJSON marshals a NICInfo object, converting IP and MAC to strings
+func (n *NetworkInterface) MarshalJSON() ([]byte, error) {
+	type Alias NetworkInterface
+	v := &struct {
+		*Alias
+		NICs []string `json:"nics"`
+	}{
+		Alias: (*Alias)(n),
+	}
+
+	v.NICs = make([]string, 0, len(n.NICs))
+	for _, mac := range n.NICs {
+		v.NICs = append(v.NICs, mac.String())
+	}
+
+	if v.Metadata == nil {
+		v.Metadata = make(Metadata)
+	}
+	return json.Marshal(v)
+}
+
+// UnmarshalJSON unmarshals a NICInfo object, converting IP and MAC from strings
+func (n *NetworkInterface) UnmarshalJSON(data []byte) error {
+	type Alias NetworkInterface
+	v := &struct {
+		*Alias
+		NICs []string `json:"nics"`
+	}{
+		Alias: (*Alias)(n),
+	}
+	err := json.Unmarshal(data, v)
+	if err != nil {
+		return err
+	}
+
+	if n.Metadata == nil {
+		n.Metadata = make(Metadata)
+	}
+
+	n.NICs = make([]net.HardwareAddr, 0, len(v.NICs))
+	for _, macString := range v.NICs {
+		mac, err := net.ParseMAC(macString)
+		if err != nil {
+			return fmt.Errorf("unable to parse mac '%s': %v", macString, err)
+		}
+		n.NICs = append(n.NICs, mac)
 	}
 	return nil
 }

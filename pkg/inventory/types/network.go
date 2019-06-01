@@ -39,3 +39,23 @@ func (n *Network) GetSubnetContainingIP(ip net.IP) *Subnet {
 
 	return nil
 }
+
+// GetNicConfig builds a NicConfig object fo the specified interface on this network
+func (n *Network) GetNicConfig(reservations IPReservationList) *NicConfig {
+	nicConfig := &NicConfig{}
+	for _, s := range n.Subnets {
+		for _, r := range reservations {
+			if !s.Cidr.Contains(r.IP.IP) {
+				continue
+			}
+			nicConfig.IP = append(nicConfig.IP, r.IP.String())
+			if s.Gateway != nil {
+				nicConfig.Gateway = append(nicConfig.Gateway, s.Gateway.String())
+			}
+			for _, dns := range s.DNS {
+				nicConfig.DNS = append(nicConfig.DNS, dns.String())
+			}
+		}
+	}
+	return nicConfig
+}

@@ -9,6 +9,7 @@ import (
 	dynamodbtest "github.com/PolarGeospatialCenter/dockertest/pkg/dynamodb"
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/testutils"
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/dynamodbclient"
+	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
@@ -41,8 +42,8 @@ func TestGetHandler(t *testing.T) {
 	node.Role = "Role1"
 	node.Tags = inventorytypes.Tags{}
 	node.Metadata = inventorytypes.Metadata{}
-	node.Networks = map[string]*inventorytypes.NICInfo{
-		"testnetwork": &inventorytypes.NICInfo{MAC: testMac},
+	node.Networks = types.NICInfoMap{
+		"testnetwork": &inventorytypes.NetworkInterface{NICs: []net.HardwareAddr{testMac}, Metadata: types.Metadata{}},
 	}
 
 	network := inventorytypes.NewNetwork()
@@ -85,8 +86,12 @@ func TestGetHandler(t *testing.T) {
 	}
 
 	handlerCtx := lambdautils.NewAwsConfigContext(ctx, dbInstance.Config())
+	inv.IPReservation().CreateIPReservation(&types.IPReservation{
+		IP:  &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0)},
+		MAC: testMac,
+	})
 
-	inventoryNode, err := inventorytypes.NewInventoryNode(node, inventorytypes.NetworkMap{"testnetwork": network}, inventorytypes.SystemMap{"tsts": system})
+	inventoryNode, err := inventorytypes.NewInventoryNode(node, inventorytypes.NetworkMap{"testnetwork": network}, inventorytypes.SystemMap{"tsts": system}, inv.IPReservation())
 	if err != nil {
 		t.Errorf("unable to build inventory node: %v", err)
 	}
