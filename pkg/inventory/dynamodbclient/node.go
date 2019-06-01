@@ -136,7 +136,9 @@ func (db *NodeStore) reconcileIPs(node *types.Node) error {
 
 			// we don't have a static or dynamic reservation, and allocation is enabled
 			// allocate an IP and create a reservation
-			_, err := db.IPReservation().CreateRandomIPReservation(types.NewStaticIPReservation(), subnet)
+			newReservation := types.NewStaticIPReservation()
+			newReservation.MAC = iface.NICs[0]
+			_, err := db.IPReservation().CreateRandomIPReservation(newReservation, subnet)
 			if err != nil {
 				return err
 			}
