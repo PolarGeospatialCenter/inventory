@@ -84,29 +84,6 @@ func (n *NICInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-func (n *NICInfoMap) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	if av.M != nil && len(av.M) > 0 {
-		// try to unmarshal a current NICInfoMap, if that fails, try a legacy one
-		ni := make(map[string]*NetworkInterface, len(av.M))
-		err := dynamodbattribute.UnmarshalMap(av.M, &ni)
-		if err != nil {
-			legacyNi := make(map[string]*NICInfo, len(av.M))
-			err := dynamodbattribute.UnmarshalMap(av.M, &legacyNi)
-			if err != nil {
-				return err
-			}
-			for netname, legacyNICInfo := range legacyNi {
-				ni[netname] = &NetworkInterface{NICs: []net.HardwareAddr{legacyNICInfo.MAC}}
-			}
-		}
-		*n = ni
-		return nil
-	} else if av.NULL != nil && *av.NULL {
-		*n = NICInfoMap{}
-	}
-	return nil
-}
-
 type NetworkInterface struct {
 	NICs     []net.HardwareAddr `json:"-" dynamodbav:"nics"`
 	Metadata Metadata
@@ -159,5 +136,23 @@ func (n *NetworkInterface) UnmarshalJSON(data []byte) error {
 		}
 		n.NICs = append(n.NICs, mac)
 	}
+	return nil
+}
+
+func (n *NetworkInterface) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type Alias NetworkInterface
+	iface := &Alias{}
+
+	// check for NicInfo
+	if macAv, ok := av.M["MAC"]; ok {
+		av.M["NICs"] = &dynamodb.AttributeValue{L: []*dynamodb.AttributeValue{macAv}}
+		delete(av.M, "MAC")
+	}
+
+	err := dynamodbattribute.Unmarshal(av, iface)
+	if err != nil {
+		return err
+	}
+	*n = (NetworkInterface)(*iface)
 	return nil
 }

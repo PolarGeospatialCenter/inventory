@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
 func getTestNICInfo() (*NetworkInterface, string) {
@@ -39,4 +41,43 @@ func TestNICInfoUnmarshalJSON(t *testing.T) {
 	expected, testText := getTestNICInfo()
 	info := &NetworkInterface{}
 	testUnmarshalJSON(t, info, expected, testText)
+}
+
+func TestLegacyNICInfoDynamoDBUnmarshal(t *testing.T) {
+	mac, _ := net.ParseMAC("00:01:02:03:04:05")
+	ni := &NICInfo{MAC: mac}
+	marshaledNicInfo, err := dynamodbattribute.Marshal(ni)
+	if err != nil {
+		t.Errorf("error marshaling legacy nicinfo object: %v", err)
+	}
+
+	iface := &NetworkInterface{}
+	err = dynamodbattribute.Unmarshal(marshaledNicInfo, iface)
+	if err != nil {
+		t.Errorf("unable to unmarshal legacy nicinfo to network interface: %v", err)
+	}
+
+	if len(iface.NICs) == 0 || iface.NICs[0].String() != ni.MAC.String() {
+		t.Errorf("not unmarshaled properly, got %v", iface)
+	}
+}
+
+func TestLegacyNICInfoMapDynamoDBUnmarshal(t *testing.T) {
+	mac, _ := net.ParseMAC("00:01:02:03:04:05")
+	ni := &NICInfo{MAC: mac}
+	niMap := map[string]*NICInfo{"testnet": ni}
+	marshaledNicInfoMap, err := dynamodbattribute.Marshal(niMap)
+	if err != nil {
+		t.Errorf("error marshaling legacy nicinfo object: %v", err)
+	}
+
+	ifaceMap := NICInfoMap{}
+	err = dynamodbattribute.Unmarshal(marshaledNicInfoMap, &ifaceMap)
+	if err != nil {
+		t.Errorf("unable to unmarshal legacy nicinfo to network interface: %v", err)
+	}
+
+	if len(ifaceMap) == 0 || len(ifaceMap["testnet"].NICs) == 0 || ifaceMap["testnet"].NICs[0].String() != ni.MAC.String() {
+		t.Errorf("not unmarshaled properly, got %v", ifaceMap)
+	}
 }
