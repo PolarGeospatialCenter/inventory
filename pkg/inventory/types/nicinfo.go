@@ -84,6 +84,22 @@ func (n *NICInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
+func (n *NICInfoMap) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	if av.M != nil && len(av.M) > 0 {
+		// try to unmarshal a current NICInfoMap, if that fails, try a legacy one
+		ni := make(map[string]*NetworkInterface, len(av.M))
+		err := dynamodbattribute.UnmarshalMap(av.M, &ni)
+		if err != nil {
+			return err
+		}
+		*n = ni
+		return nil
+	} else if av.NULL != nil && *av.NULL {
+		*n = NICInfoMap{}
+	}
+	return nil
+}
+
 type NetworkInterface struct {
 	NICs     []net.HardwareAddr `json:"-" dynamodbav:"nics"`
 	Metadata Metadata
