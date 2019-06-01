@@ -1,6 +1,6 @@
 .PHONY: test deps
 
-export GO111MODULES=on
+export GO111MODULE=on
 export GOFLAGS=-mod=readonly
 test: 
 	go test -cover -v ./pkg/...
