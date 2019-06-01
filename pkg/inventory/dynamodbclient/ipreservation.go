@@ -102,7 +102,7 @@ func (db *IPReservationStore) CreateRandomIPReservation(r *types.IPReservation, 
 		}
 
 		startOffset, ipLength := subnet.Cidr.Mask.Size()
-		if len(existingReservations) >= (1<<uint(ipLength-startOffset) - 2) {
+		if subnet.Cidr.IP.To4() != nil && len(existingReservations) >= (1<<uint(ipLength-startOffset)-2) {
 			return nil, fmt.Errorf("this subnet is full, cannot allocate an address")
 		}
 
