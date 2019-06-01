@@ -68,6 +68,24 @@ func (s *Subnet) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+func (n *Subnet) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	type Alias Subnet
+	v := Alias{}
+
+	if legacyMethod, ok := av.M["AllocationMethod"]; ok {
+		av.M["StaticAllocationMethod"] = legacyMethod
+		av.M["DynamicAllocationMethod"] = legacyMethod
+		delete(av.M, "AllocationMethod")
+	}
+
+	err := dynamodbattribute.Unmarshal(av, &v)
+	if err != nil {
+		return err
+	}
+	*n = (Subnet)(v)
+	return nil
+}
+
 func (n *SubnetList) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	if av.L != nil {
 		l := make(SubnetList, 0, len(av.L))
