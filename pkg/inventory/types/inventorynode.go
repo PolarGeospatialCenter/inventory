@@ -14,6 +14,10 @@ type SystemDB interface {
 	GetSystemByID(string) (*System, error)
 }
 
+type IPReservationDB interface {
+	GetIPReservationsByMac(net.HardwareAddr) (IPReservationList, error)
+}
+
 type NetworkMap map[string]*Network
 
 func (m NetworkMap) GetNetworkByID(id string) (*Network, error) {
@@ -34,6 +38,16 @@ func (m SystemMap) GetSystemByID(id string) (*System, error) {
 	return system, nil
 }
 
+type IPReservationMap map[string]IPReservationList
+
+func (m IPReservationMap) GetIPReservationsByMac(mac net.HardwareAddr) (IPReservationList, error) {
+	reservations, ok := m[mac.String()]
+	if !ok {
+		return nil, fmt.Errorf("IPReservations not found matching mac: %s", mac.String())
+	}
+	return reservations, nil
+}
+
 type InventoryNode struct {
 	Hostname        string
 	LocationString  string
@@ -47,9 +61,10 @@ type InventoryNode struct {
 	Environment     *Environment
 	Metadata        Metadata
 	LastUpdated     time.Time
+	ips             []net.IP
 }
 
-func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*InventoryNode, error) {
+func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB, ipReservationDB IPReservationDB) (*InventoryNode, error) {
 	inode := &InventoryNode{}
 	inode.Hostname = node.Hostname()
 	inode.LocationString = node.Location()
@@ -89,23 +104,26 @@ func NewInventoryNode(node *Node, networkDB NetworkDB, systemDB SystemDB) (*Inve
 	inode.Environment = environment
 
 	inode.Networks = make(map[string]*NICInstance)
-	for netname, nicinfo := range node.Networks {
+	for netname, iface := range node.Networks {
 		network, err := networkDB.GetNetworkByID(netname)
 		if err != nil {
 			return nil, err
 		}
 
-		config := NewNicConfig()
-
-		for _, subnet := range network.Subnets {
-			if subnet.Cidr.Contains(nicinfo.IP) {
-				ip := net.IPNet{IP: nicinfo.IP, Mask: subnet.Cidr.Mask}
-				config.Append(ip, subnet.DNS, &subnet.Gateway)
-				continue
+		reservations := IPReservationList{}
+		for _, mac := range iface.NICs {
+			ifaceReservations, err := ipReservationDB.GetIPReservationsByMac(mac)
+			if err != nil {
+				return nil, err
 			}
+			reservations = append(reservations, ifaceReservations...)
 		}
+		for _, r := range reservations {
+			inode.ips = append(inode.ips, r.IP.IP)
+		}
+		config := network.GetNicConfig(reservations)
 
-		nicInstance := &NICInstance{NIC: *nicinfo, Network: *network, Config: *config}
+		nicInstance := &NICInstance{Interface: *iface, Network: *network, Config: *config}
 		logical, err := inode.Environment.LookupLogicalNetworkName(netname)
 		if err != nil {
 			return nil, err
@@ -134,11 +152,5 @@ func (i *InventoryNode) Timestamp() int64 {
 
 // IPs returns a slice containing all non-nil IPs assigned to the node
 func (i *InventoryNode) IPs() []net.IP {
-	var ips []net.IP
-	for _, nicinstance := range i.Networks {
-		if nicinstance.NIC.IP != nil {
-			ips = append(ips, nicinstance.NIC.IP)
-		}
-	}
-	return ips
+	return i.ips
 }

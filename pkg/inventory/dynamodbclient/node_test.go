@@ -38,9 +38,9 @@ func TestNodeCreate(t *testing.T) {
 	err = inv.Node().Create(
 		&types.Node{
 			InventoryID: "test",
-			Networks: map[string]*types.NICInfo{
-				"testnet": &types.NICInfo{
-					MAC: mac,
+			Networks: types.NICInfoMap{
+				"testnet": &types.NetworkInterface{
+					NICs: []net.HardwareAddr{mac},
 				},
 			},
 		})
@@ -54,7 +54,8 @@ func TestNodeCreate(t *testing.T) {
 		t.Errorf("unable to get newly created node: %v", err)
 	}
 
-	if nic, ok := n.Networks["testnet"]; !ok || nic.MAC.String() != "00:01:02:03:04:05" {
+	if iface, ok := n.Networks["testnet"]; !ok || len(iface.NICs) != 1 || iface.NICs[0].String() != "00:01:02:03:04:05" {
+		t.Log(iface)
 		t.Errorf("network not stored properly with node")
 	}
 

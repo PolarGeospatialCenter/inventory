@@ -22,6 +22,17 @@ type IPReservation struct {
 	End             *time.Time       `json:"end"`
 }
 
+func NewStaticIPReservation() *IPReservation {
+	now := time.Now()
+	return &IPReservation{Start: &now}
+}
+
+func NewDynamicIPReservation(ttl time.Duration) *IPReservation {
+	now := time.Now()
+	end := now.Add(ttl)
+	return &IPReservation{Start: &now, End: &end}
+}
+
 func (r *IPReservation) SetRandomIP() error {
 	startOffset, ipLength := r.IP.Mask.Size()
 	networkIP, _ := iputils.SetBits(r.IP.IP, uint64(0), uint(startOffset), uint(ipLength-startOffset))
@@ -46,6 +57,22 @@ func (r *IPReservation) SetRandomIP() error {
 	return nil
 }
 
+// Validate checks that the reservation is internally consistent and fully populated
+func (r *IPReservation) Validate() bool {
+	if r.IP == nil {
+		return false
+	}
+
+	if r.IP.IP.To4() != nil {
+		startOffset, ipLength := r.IP.Mask.Size()
+		networkIP := r.IP.IP.Mask(r.IP.Mask)
+		broadcastIP, _ := iputils.SetBits(networkIP, uint64(0xffffffffffffffff), uint(startOffset), uint(ipLength-startOffset))
+		return !r.IP.IP.Equal(networkIP) && !r.IP.IP.Equal(broadcastIP)
+	} else {
+		return true
+	}
+}
+
 // ValidAt returns true if an IPReservation is valid at the time specified
 func (r *IPReservation) ValidAt(t time.Time) bool {
 	if r.Start != nil && r.Start.After(t) {
@@ -57,6 +84,10 @@ func (r *IPReservation) ValidAt(t time.Time) bool {
 	}
 
 	return true
+}
+
+func (r *IPReservation) Static() bool {
+	return r.End == nil
 }
 
 func (r *IPReservation) SetSubnetInformation(subnet *Subnet) {
@@ -223,4 +254,45 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 	}
 
 	return nil
+}
+
+type IPReservationList []*IPReservation
+
+func (l IPReservationList) Static() IPReservationList {
+	staticList := IPReservationList{}
+	for _, r := range l {
+		if r.Static() {
+			staticList = append(staticList, r)
+		}
+	}
+	return staticList
+}
+
+func (l IPReservationList) Dynamic() IPReservationList {
+	dynamicList := IPReservationList{}
+	for _, r := range l {
+		if !r.Static() {
+			dynamicList = append(dynamicList, r)
+		}
+	}
+	return dynamicList
+}
+
+func (l IPReservationList) ValidAt(t time.Time) IPReservationList {
+	result := IPReservationList{}
+	for _, r := range l {
+		if r.ValidAt(t) {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
+func (l IPReservationList) Contains(ip net.IP) bool {
+	for _, r := range l {
+		if r.IP.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
 }

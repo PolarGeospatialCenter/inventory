@@ -6,27 +6,15 @@ import (
 	"testing"
 )
 
-func getTestNICInfo() (*NICInfo, string, string) {
+func getTestNICInfo() (*NetworkInterface, string) {
 	mac, _ := net.ParseMAC("00:02:03:04:05:06")
-	ip := net.ParseIP("10.0.0.1")
-	nicInfo := &NICInfo{MAC: mac, IP: ip}
-	marshaledJSON := "{\"MAC\":\"00:02:03:04:05:06\",\"IP\":\"10.0.0.1\"}"
-	marhsaledYAML := "mac: 00:02:03:04:05:06\nip: 10.0.0.1\n"
-	return nicInfo, marshaledJSON, marhsaledYAML
-}
-
-func TestNicInfoUnmarshalNoMac(t *testing.T) {
-	ip := net.ParseIP("10.0.0.1")
-	nicInfo := &NICInfo{MAC: net.HardwareAddr{}, IP: ip}
-	marshaledJSON := "{\"IP\":\"10.0.0.1\"}"
-	marhsaledYAML := "ip: 10.0.0.1\n"
-
-	testUnmarshalYAML(t, &NICInfo{}, nicInfo, marhsaledYAML)
-	testUnmarshalJSON(t, &NICInfo{}, nicInfo, marshaledJSON)
+	nicInfo := &NetworkInterface{NICs: []net.HardwareAddr{mac}, Metadata: Metadata{}}
+	marshaledJSON := `{"Metadata":{},"nics":["00:02:03:04:05:06"]}`
+	return nicInfo, marshaledJSON
 }
 
 func TestNICInfoMarshal(t *testing.T) {
-	i, expected, _ := getTestNICInfo()
+	i, expected := getTestNICInfo()
 	result, err := json.Marshal(i)
 	if err != nil {
 		t.Fatalf("Unable to marshal nic info %v", i)
@@ -36,25 +24,19 @@ func TestNICInfoMarshal(t *testing.T) {
 		t.Fatalf("The marshaled version of the NICInfo is incorrect: '%s', Expected: '%s'", string(result), expected)
 	}
 
-	i = &NICInfo{}
+	i = &NetworkInterface{}
 	result, err = json.Marshal(i)
 	if err != nil {
 		t.Fatalf("Unable to marshal nil nic info: %v", err)
 	}
 
-	if string(result) != "{\"MAC\":\"\",\"IP\":\"\"}" {
+	if string(result) != `{"Metadata":{},"nics":[]}` {
 		t.Fatalf("Marshaled version of nil NICInfo incorrect: %s", string(result))
 	}
 }
 
 func TestNICInfoUnmarshalJSON(t *testing.T) {
-	expected, testText, _ := getTestNICInfo()
-	info := &NICInfo{}
+	expected, testText := getTestNICInfo()
+	info := &NetworkInterface{}
 	testUnmarshalJSON(t, info, expected, testText)
-}
-
-func TestNICInfoUnmarshalYAML(t *testing.T) {
-	expected, _, testText := getTestNICInfo()
-	info := &NICInfo{}
-	testUnmarshalYAML(t, info, expected, testText)
 }

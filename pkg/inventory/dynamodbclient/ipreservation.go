@@ -2,49 +2,20 @@ package dynamodbclient
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
-	"github.com/PolarGeospatialCenter/inventory/pkg/ipam"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/azenk/iputils"
 )
 
 type IPReservationStore struct {
 	*DynamoDBStore
-}
-
-func (db *IPReservationStore) generateIPReservation(node *types.Node, network *types.Network) (*types.IPReservation, error) {
-	var ip *net.IPNet
-	nic := node.Networks[network.ID()]
-
-	for _, subnet := range network.Subnets {
-		if nic.IP == nil {
-			allocatedIP, _, _, err := subnet.GetNicConfig(node)
-			if err == nil {
-				ip = &allocatedIP
-				break
-			} else if err != ipam.ErrAllocationNotImplemented {
-				return nil, fmt.Errorf("unexpected error allocating IP for nic: %v", err)
-			}
-		} else if subnet.Cidr.Contains(nic.IP) {
-			ip = &net.IPNet{
-				IP:   nic.IP,
-				Mask: subnet.Cidr.Mask,
-			}
-		}
-	}
-
-	if ip == nil {
-		return nil, nil
-	}
-
-	sTime := time.Now()
-	reservation := &types.IPReservation{IP: ip, MAC: nic.MAC, Start: &sTime}
-	return reservation, nil
 }
 
 func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReservation, error) {
@@ -55,8 +26,23 @@ func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReser
 	return r, err
 }
 
+func (db *IPReservationStore) GetIPReservationsByMac(mac net.HardwareAddr) (types.IPReservationList, error) {
+	allReservations := make(types.IPReservationList, 0)
+	err := db.getAll(&allReservations)
+	if err != nil {
+		return nil, err
+	}
+	result := make(types.IPReservationList, 0)
+	for _, reservation := range allReservations {
+		if reservation.MAC.String() == mac.String() {
+			result = append(result, reservation)
+		}
+	}
+	return result, nil
+}
+
 // GetIPReservations returns all current reservations in the specified subnet
-func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPReservation, error) {
+func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) (types.IPReservationList, error) {
 	table := db.tableMap.LookupTable(&types.IPReservation{})
 	if table == nil {
 		return nil, fmt.Errorf("No table found for object of type %T", &types.IPReservation{})
@@ -85,7 +71,7 @@ func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) ([]*types.IPRe
 		return nil, err
 	}
 
-	out := make([]*types.IPReservation, len(results.Items))
+	out := make(types.IPReservationList, len(results.Items))
 
 	err = dynamodbattribute.UnmarshalListOfMaps(results.Items, &out)
 
@@ -104,6 +90,56 @@ func (db *IPReservationStore) GetExistingIPReservationInSubnet(subnetCidr *net.I
 		}
 	}
 	return nil, nil
+}
+
+func (db *IPReservationStore) CreateRandomIPReservation(r *types.IPReservation, subnet *types.Subnet) (*types.IPReservation, error) {
+	maxCount := 10
+	reservation := *r
+	for count := 0; count < maxCount; count++ {
+		existingReservations, err := db.GetIPReservations(subnet.Cidr)
+		if err != nil {
+			return nil, err
+		}
+
+		startOffset, ipLength := subnet.Cidr.Mask.Size()
+		if len(existingReservations) >= (1<<uint(ipLength-startOffset) - 2) {
+			return nil, fmt.Errorf("this subnet is full, cannot allocate an address")
+		}
+
+		rand.Seed(time.Now().UnixNano())
+
+		reservation.IP = &net.IPNet{Mask: subnet.Cidr.Mask}
+		if reservation.Start == nil {
+			start := time.Now()
+			reservation.Start = &start
+		}
+
+		// generate random IP in the subnet
+		// Check to see if reservation list contains a reservation for it
+		// if it's in the list of reserved addresses, try again
+		// if it's not in the list of addresses, try to reserve it
+		// if reservation fails, retry up to N times?  or just error?
+		for {
+			// choose IP at random until we find a free one
+			randomHostPart := rand.Uint64()
+			candidateIP, err := iputils.SetBits(subnet.Cidr.IP, randomHostPart, uint(startOffset), uint(ipLength-startOffset))
+			if err != nil {
+				return nil, fmt.Errorf("unexpected error building ip: %v", err)
+			}
+			reservation.IP.IP = candidateIP
+
+			if !reservation.Validate() || existingReservations.Contains(candidateIP) {
+				continue
+			}
+
+			err = db.CreateIPReservation(&reservation)
+			if err != nil && err == ErrAlreadyExists {
+				break
+			}
+			return &reservation, err
+		}
+	}
+	return nil, fmt.Errorf("retry limit exceeded: giving up on reserving an ip for %v", r)
 }
 
 func (db *IPReservationStore) CreateIPReservation(r *types.IPReservation) error {
@@ -180,12 +216,20 @@ func (db *IPReservationStore) CreateOrUpdateIPReservation(r *types.IPReservation
 	return db.CreateIPReservation(r)
 }
 
+func (db *IPReservationStore) Exists(r *types.IPReservation) (bool, error) {
+	return db.DynamoDBStore.exists(r)
+}
+
 func (db *IPReservationStore) Delete(r *types.IPReservation) error {
 	return db.DynamoDBStore.delete(r)
 }
 
 func (db *IPReservationStore) ObjExists(obj interface{}) (bool, error) {
-	return db.DynamoDBStore.exists(obj)
+	r, ok := obj.(*types.IPReservation)
+	if !ok {
+		return false, ErrInvalidObjectType
+	}
+	return db.Exists(r)
 }
 
 func (db *IPReservationStore) ObjCreate(obj interface{}) error {

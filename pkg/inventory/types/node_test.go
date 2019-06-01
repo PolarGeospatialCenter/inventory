@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-func getTestNode() (*Node, string, string) {
+func getTestNode() (*Node, string) {
 	node := NewNode()
 	node.InventoryID = "sample0002"
 	node.ChassisLocation = &ChassisLocation{Building: "123 Fake St", Room: "305", Rack: "te12", BottomU: 4}
 	node.ChassisSubIndex = "a"
 	node.Tags = []string{"foo", "bar", "baz"}
-	node.Networks = make(map[string]*NICInfo)
-	nicInfo, _, _ := getTestNICInfo()
+	node.Networks = make(NICInfoMap)
+	nicInfo, _ := getTestNICInfo()
 	node.Networks["test_phys"] = nicInfo
 	node.Role = "worker"
 	node.Environment = "production"
@@ -24,35 +24,12 @@ func getTestNode() (*Node, string, string) {
 	node.Metadata["foo"] = "test"
 	node.Metadata["bar"] = 34.1
 
-	jsonString := `{"InventoryID":"sample0002","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"MAC":"00:02:03:04:05:06","IP":"10.0.0.1"}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
-	yamlString := `inventoryid: sample0002
-chassislocation:
-  building: 123 Fake St
-  room: "305"
-  rack: te12
-  bottomu: 4
-chassissubindex: a
-tags:
-  - foo
-  - bar
-  - baz
-networks:
-  test_phys:
-    mac: 00:02:03:04:05:06
-    ip: 10.0.0.1
-role: worker
-environment: production
-system: test
-lastupdated: 1973-11-29T21:33:09Z
-metadata:
-  foo: test
-  bar: 34.1
-`
-	return node, jsonString, yamlString
+	jsonString := `{"InventoryID":"sample0002","Building":"123 Fake St","Room":"305","Rack":"te12","BottomU":4,"ChassisSubIndex":"a","Tags":["foo","bar","baz"],"Networks":{"test_phys":{"Metadata":{},"nics":["00:02:03:04:05:06"]}},"Role":"worker","Environment":"production","System":"test","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
+	return node, jsonString
 }
 
 func TestNodeMarshalJSON(t *testing.T) {
-	node, jsonstring, _ := getTestNode()
+	node, jsonstring := getTestNode()
 	actualString, err := json.Marshal(node)
 	if err != nil {
 		t.Fatalf("Unable to marshal: %v", err)
@@ -64,15 +41,9 @@ func TestNodeMarshalJSON(t *testing.T) {
 }
 
 func TestNodeUnmarshalJSON(t *testing.T) {
-	expected, jsonString, _ := getTestNode()
+	expected, jsonString := getTestNode()
 	node := &Node{}
 	testUnmarshalJSON(t, node, expected, jsonString)
-}
-
-func TestNodeUnmarshalYAML(t *testing.T) {
-	expected, _, yamlString := getTestNode()
-	node := &Node{}
-	testUnmarshalYAML(t, node, expected, yamlString)
 }
 
 func TestNodeID(t *testing.T) {

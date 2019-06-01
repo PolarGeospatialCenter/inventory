@@ -19,8 +19,9 @@ func testUnmarshalJSON(t *testing.T, dst interface{}, expected interface{}, json
 		for _, d := range diff {
 			t.Error(d)
 		}
-		t.FailNow()
 	}
+	t.Logf("Got: %v", jsonString)
+	t.Logf("Unmarshaled: %v", dst)
 }
 
 func testUnmarshalYAML(t *testing.T, dst interface{}, expected interface{}, yamlString string) {

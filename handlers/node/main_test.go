@@ -23,8 +23,8 @@ func testNode() *inventorytypes.Node {
 	node := inventorytypes.NewNode()
 	node.InventoryID = "testnode"
 	testMac, _ := net.ParseMAC("00:01:02:03:04:05")
-	node.Networks = map[string]*inventorytypes.NICInfo{
-		"testnet": &inventorytypes.NICInfo{MAC: testMac},
+	node.Networks = types.NICInfoMap{
+		"testnet": &inventorytypes.NetworkInterface{NICs: []net.HardwareAddr{testMac}, Metadata: types.Metadata{}},
 	}
 	node.Tags = inventorytypes.Tags{}
 	node.Metadata = inventorytypes.Metadata{}
@@ -106,7 +106,7 @@ func TestGetHandler(t *testing.T) {
 			Name: "Lookup node by MAC",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].MAC.String()},
+				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].NICs[0].String()},
 			},
 			TestResult: &testutils.TestResult{
 				ExpectedBodyObject: []*inventorytypes.Node{node},
@@ -117,7 +117,7 @@ func TestGetHandler(t *testing.T) {
 			Name: "Lookup node by MAC with extraneous query parameters",
 			Request: events.APIGatewayProxyRequest{
 				HTTPMethod:            http.MethodGet,
-				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].MAC.String(), "badparam": "baz"},
+				QueryStringParameters: map[string]string{"mac": node.Networks["testnet"].NICs[0].String(), "badparam": "baz"},
 			},
 			TestResult: &testutils.TestResult{
 				ExpectedBodyObject: []*inventorytypes.Node{node},
@@ -237,8 +237,8 @@ func TestPutHandler(t *testing.T) {
 
 	updatedMac, _ := net.ParseMAC("01:02:03:04:05:06")
 	updatedNode := *node
-	updatedNode.Networks = map[string]*inventorytypes.NICInfo{
-		"testnet": &inventorytypes.NICInfo{MAC: updatedMac},
+	updatedNode.Networks = types.NICInfoMap{
+		"testnet": &inventorytypes.NetworkInterface{NICs: []net.HardwareAddr{updatedMac}, Metadata: types.Metadata{}},
 	}
 	updatedNodeJson, err := json.Marshal(updatedNode)
 	if err != nil {
@@ -317,7 +317,8 @@ func TestPostHandler(t *testing.T) {
 					IP:   net.ParseIP("10.0.0.1"),
 					Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0x00),
 				},
-				AllocationMethod: "static_inventory",
+				StaticAllocationMethod:  "random",
+				DynamicAllocationMethod: "",
 			},
 		},
 	}
@@ -335,8 +336,6 @@ func TestPostHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unable to marshal node json: %v", err)
 	}
-
-	node.Networks["testnet"].IP = net.ParseIP("10.0.0.2")
 
 	cases := testutils.TestCases{
 		testutils.TestCase{Ctx: handlerCtx,

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
-	"github.com/PolarGeospatialCenter/inventory/pkg/ipam"
 )
 
 type NodeStore struct {
@@ -45,145 +44,163 @@ func (db *NodeStore) GetNodeByMAC(mac net.HardwareAddr) (*types.Node, error) {
 }
 
 func (db *NodeStore) Create(newNode *types.Node) error {
-	for netname, nic := range newNode.Networks {
-		network, err := db.Network().GetNetworkByID(netname)
-		if err != nil {
-			return err
-		}
 
-		if nic.IP == nil && nic.MAC == nil {
-			continue
-		}
+	err := db.reconcileIPs(newNode)
+	if err != nil {
+		return err
+	}
 
-		if nic.MAC != nil {
-			db.nodeMacIndex().Create(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: newNode.LastUpdated, NodeID: newNode.ID()})
-		}
-
-		reservation, err := generateIPReservation(newNode, network)
-		if err != nil {
-			return fmt.Errorf("unexpected error while creating reservation for node '%s' on network '%s': %v", newNode.InventoryID, network.ID(), err)
-		}
-
-		if reservation == nil {
-			continue
-		}
-
-		reservation.HostInformation = newNode.InventoryID
-		err = db.IPReservation().CreateOrUpdateIPReservation(reservation)
-		if err != nil {
-			return fmt.Errorf("unable to reserve IP for NIC: %v", err)
-		}
-		nic.IP = reservation.IP.IP
-
+	err = db.reconcileMacIndex(newNode)
+	if err != nil {
+		return nil
 	}
 
 	return db.DynamoDBStore.create(newNode)
 }
 
-func (db *NodeStore) Update(updatedNode *types.Node) error {
-	existingNode := *updatedNode
-	err := db.DynamoDBStore.get(&existingNode)
-	if err != nil {
-		return err
+func (db *NodeStore) reconcileIPs(node *types.Node) error {
+	// For a given node, make sure that the list of IPs on each interface is valid and fully populated
+	existingNode, err := db.GetNodeByID(node.ID())
+	if err != nil && err != ErrObjectNotFound {
+		return fmt.Errorf("a node with this id exists already, but we can't get it for comparison: %v", err)
 	}
 
-	existingMacIndices, err := db.nodeMacIndex().GetMacIndexEntriesByNodeID(updatedNode.ID())
+	macsToRemove := make(map[string]net.HardwareAddr)
+
+	if existingNode != nil {
+		for _, iface := range existingNode.Networks {
+			for _, mac := range iface.NICs {
+				macsToRemove[mac.String()] = mac
+			}
+		}
+	}
+
+	for netname, iface := range node.Networks {
+		// TODO: do we support static IPs without macs?
+		if iface.NICs == nil || len(iface.NICs) == 0 {
+			// if we don't have a mac, we can't reserve any IPs
+			continue
+		}
+
+		// Get network
+		network, err := db.Network().GetNetworkByID(netname)
+		if err != nil {
+			return fmt.Errorf("unable to get network named '%s': %v", netname, err)
+		}
+
+		// For each subnet with an allocation strategy, make sure theres a valid static IP reservation
+		for _, subnet := range network.Subnets {
+			for _, mac := range iface.NICs {
+				// this NIC still exists, we don't need to remove
+				if _, ok := macsToRemove[mac.String()]; ok {
+					delete(macsToRemove, mac.String())
+				}
+			}
+
+			if !subnet.StaticAllocationEnabled() {
+				continue
+			}
+
+			existingReservations := types.IPReservationList{}
+			for _, mac := range iface.NICs {
+				reservation, err := db.IPReservation().GetExistingIPReservationInSubnet(subnet.Cidr, mac)
+				if err != nil {
+					return fmt.Errorf("unable to get reservation for nic: %v", err)
+				}
+				if reservation != nil {
+					existingReservations = append(existingReservations, reservation)
+				}
+			}
+			// If allocation is enabled for this subnet, then we should have one static reservation.
+			// If allocation is disabled, a static reservation may exist, but we will not create one.
+			// Check for existing reservations
+			// If static reservation exists for any mac on this iface, continue to next interface
+			// If we find a valid dynamic reservation for any mac on the iface make it static
+			// otherwise have the allocator choose an address and create a static reservation
+			existingStatic := existingReservations.Static().ValidAt(time.Now())
+			if len(existingStatic) > 0 {
+				continue
+			}
+
+			// try to upgrade a dynamic reservation
+			existingDynamic := existingReservations.Dynamic().ValidAt(time.Now())
+			if len(existingDynamic) > 0 {
+				reservation := existingDynamic[0]
+				reservation.End = nil
+				err = db.IPReservation().UpdateIPReservation(reservation)
+				if err != nil {
+					return fmt.Errorf("unable to upgrade dynamic reservation: %v", err)
+				}
+				continue
+			}
+
+			// we don't have a static or dynamic reservation, and allocation is enabled
+			// allocate an IP and create a reservation
+			_, err := db.IPReservation().CreateRandomIPReservation(types.NewStaticIPReservation(), subnet)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, mac := range macsToRemove {
+		reservations, err := db.IPReservation().GetIPReservationsByMac(mac)
+		for _, reservation := range reservations.Static() {
+			err = db.IPReservation().Delete(reservation)
+			if err != nil {
+				return fmt.Errorf("unable to delete reservation: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (db *NodeStore) reconcileMacIndex(node *types.Node) error {
+	existingMacIndices, err := db.nodeMacIndex().GetMacIndexEntriesByNodeID(node.ID())
 	if err != nil {
 		return fmt.Errorf("unable to lookup existing mac index entries: %v", err)
 	}
 
+	newMacs := make(map[string]net.HardwareAddr)
+
+	for _, iface := range node.Networks {
+		for _, mac := range iface.NICs {
+			newMacs[mac.String()] = mac
+		}
+	}
+
 	for _, oldMacIndex := range existingMacIndices {
+		if _, ok := newMacs[oldMacIndex.Mac.String()]; ok {
+			delete(newMacs, oldMacIndex.Mac.String())
+			continue
+		}
 		err := db.nodeMacIndex().Delete(oldMacIndex)
 		if err != nil {
 			return fmt.Errorf("unable to delete previous mac index entry: %v", err)
 		}
 	}
 
-	for netname, nic := range existingNode.Networks {
-		if updatedNic, ok := updatedNode.Networks[netname]; ok &&
-			updatedNic.IP.String() == nic.IP.String() &&
-			updatedNic.MAC.String() == nic.MAC.String() {
-			continue
-		}
-
-		network, err := db.Network().GetNetworkByID(netname)
+	for _, mac := range newMacs {
+		err = db.nodeMacIndex().Create(&NodeMacIndexEntry{Mac: mac, LastUpdated: node.LastUpdated, NodeID: node.ID()})
 		if err != nil {
-			return fmt.Errorf("unable to get network named '%s': %v", netname, err)
-		}
-
-		deleteSubnet := network.GetSubnetContainingIP(nic.IP)
-		if deleteSubnet == nil {
-			continue
-		}
-		err = db.IPReservation().Delete(&types.IPReservation{IP: &net.IPNet{IP: nic.IP, Mask: deleteSubnet.Cidr.Mask}})
-		if err != nil {
-			return fmt.Errorf("unable to delete IP for NIC: %v", err)
+			return fmt.Errorf("unable to create mac index entry: %v", err)
 		}
 	}
-
-	for netname, nic := range updatedNode.Networks {
-		if nic.MAC != nil {
-			db.nodeMacIndex().Create(&NodeMacIndexEntry{Mac: nic.MAC, LastUpdated: updatedNode.LastUpdated, NodeID: updatedNode.ID()})
-			delete(existingMacIndices, nic.MAC.String())
-		}
-
-		if existingNic, ok := existingNode.Networks[netname]; ok &&
-			existingNic.IP.String() == nic.IP.String() &&
-			existingNic.MAC.String() == nic.MAC.String() {
-			continue
-		}
-
-		network, err := db.Network().GetNetworkByID(netname)
-		if err != nil {
-			return fmt.Errorf("error getting networks: %v", err)
-		}
-
-		reservation, err := generateIPReservation(updatedNode, network)
-		if err != nil {
-			return fmt.Errorf("unexpected error while creating reservation for node '%s' on network '%s': %v", updatedNode.InventoryID, network.ID(), err)
-		}
-
-		if reservation == nil {
-			continue
-		}
-
-		err = db.IPReservation().CreateOrUpdateIPReservation(reservation)
-		if err != nil {
-			return fmt.Errorf("unable to reserve IP for NIC: %v", err)
-		}
-		nic.IP = reservation.IP.IP
-	}
-	return db.DynamoDBStore.update(updatedNode)
+	return nil
 }
 
-func generateIPReservation(node *types.Node, network *types.Network) (*types.IPReservation, error) {
-	var ip *net.IPNet
-	nic := node.Networks[network.ID()]
-
-	for _, subnet := range network.Subnets {
-		if nic.IP == nil {
-			allocatedIP, _, _, err := subnet.GetNicConfig(node)
-			if err == nil {
-				ip = &allocatedIP
-				break
-			} else if err != ipam.ErrAllocationNotImplemented {
-				return nil, fmt.Errorf("unexpected error allocating IP for nic: %v", err)
-			}
-		} else if subnet.Cidr.Contains(nic.IP) {
-			ip = &net.IPNet{
-				IP:   nic.IP,
-				Mask: subnet.Cidr.Mask,
-			}
-		}
+func (db *NodeStore) Update(updatedNode *types.Node) error {
+	err := db.reconcileIPs(updatedNode)
+	if err != nil {
+		return err
 	}
 
-	if ip == nil {
-		return nil, nil
+	err = db.reconcileMacIndex(updatedNode)
+	if err != nil {
+		return nil
 	}
 
-	sTime := time.Now()
-	reservation := &types.IPReservation{IP: ip, MAC: nic.MAC, Start: &sTime}
-	return reservation, nil
+	return db.DynamoDBStore.update(updatedNode)
 }
 
 func (db *NodeStore) Exists(node *types.Node) (bool, error) {
@@ -191,30 +208,15 @@ func (db *NodeStore) Exists(node *types.Node) (bool, error) {
 }
 
 func (db *NodeStore) Delete(node *types.Node) error {
-	for netname, nic := range node.Networks {
-		if nic.MAC != nil {
-			err := db.nodeMacIndex().Delete(&NodeMacIndexEntry{Mac: nic.MAC})
-			if err != nil {
-				return fmt.Errorf("error removing mac index entry (%s) for this node: %v", nic.MAC.String(), err)
-			}
-		}
+	node.Networks = types.NICInfoMap{}
+	err := db.reconcileIPs(node)
+	if err != nil {
+		return err
+	}
 
-		if nic.IP != nil {
-			network, err := db.Network().GetNetworkByID(netname)
-			if err != nil {
-				return fmt.Errorf("error getting networks: %v", err)
-			}
-
-			reservation, err := generateIPReservation(node, network)
-			if err != nil {
-				return fmt.Errorf("unexpected error while creating reservation for node '%s' on network '%s': %v", node.InventoryID, network.ID(), err)
-			}
-
-			err = db.IPReservation().Delete(reservation)
-			if err != nil {
-				return fmt.Errorf("error deleting reservation for ip '%s': %v", nic.IP.String(), err)
-			}
-		}
+	err = db.reconcileMacIndex(node)
+	if err != nil {
+		return nil
 	}
 	return db.DynamoDBStore.delete(node)
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/go-test/deep"
 )
 
-func getTestNetwork() (*Network, string, string) {
+func getTestNetwork() (*Network, string) {
 	network := NewNetwork()
 	network.Domain = "test.local"
 	network.MTU = 9000
@@ -25,26 +25,13 @@ func getTestNetwork() (*Network, string, string) {
 	network.Metadata["foo"] = "test"
 	network.Metadata["bar"] = 34.1
 
-	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[{"Name":"testsubnet","Gateway":"10.0.0.254","DNS":["10.53.53.53"],"AllocationMethod":"","Cidr":"10.0.0.0/24"}],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
-	yamlString := `name: test_phys
-mtu: 9000
-domain: test.local
-subnets:
-  - name: testsubnet
-    cidr: "10.0.0.0/24"
-    dns:
-      - 10.53.53.53
-    gateway: 10.0.0.254
-lastupdated: 1973-11-29T21:33:09Z
-metadata:
-  foo: test
-  bar: 34.1
-`
-	return network, jsonString, yamlString
+	jsonString := `{"Name":"test_phys","MTU":9000,"Subnets":[{"Name":"testsubnet","Gateway":"10.0.0.254","DNS":["10.53.53.53"],"StaticAllocationMethod":"","DynamicAllocationMethod":"","Cidr":"10.0.0.0/24"}],"Domain":"test.local","Metadata":{"bar":34.1,"foo":"test"},"LastUpdated":"1973-11-29T21:33:09Z"}`
+
+	return network, jsonString
 }
 
 func TestNetworkMarshalJSON(t *testing.T) {
-	net, jsonstring, _ := getTestNetwork()
+	net, jsonstring := getTestNetwork()
 	actualString, err := json.Marshal(net)
 	if err != nil {
 		t.Fatalf("Unable to marshal: %v", err)
@@ -56,15 +43,9 @@ func TestNetworkMarshalJSON(t *testing.T) {
 }
 
 func TestNetworkUnmarshalJSON(t *testing.T) {
-	expected, jsonString, _ := getTestNetwork()
+	expected, jsonString := getTestNetwork()
 	net := &Network{}
 	testUnmarshalJSON(t, net, expected, jsonString)
-}
-
-func TestNetworkUnmarshalYAML(t *testing.T) {
-	expected, _, yamlString := getTestNetwork()
-	net := &Network{}
-	testUnmarshalYAML(t, net, expected, yamlString)
 }
 
 func TestNetworkSetTimestamp(t *testing.T) {
@@ -77,7 +58,7 @@ func TestNetworkSetTimestamp(t *testing.T) {
 }
 
 func TestDynamoDBRoundTrip(t *testing.T) {
-	expected, _, _ := getTestNetwork()
+	expected, _ := getTestNetwork()
 
 	dynamodbValue, err := dynamodbattribute.Marshal(expected)
 	if err != nil {
@@ -99,7 +80,7 @@ func TestDynamoDBRoundTrip(t *testing.T) {
 }
 
 func TestDynamoDBRoundTripNoSubnets(t *testing.T) {
-	expected, _, _ := getTestNetwork()
+	expected, _ := getTestNetwork()
 
 	expected.Subnets = []*Subnet{}
 
