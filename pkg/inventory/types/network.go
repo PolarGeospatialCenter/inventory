@@ -45,16 +45,10 @@ func (n *Network) GetNicConfig(reservations IPReservationList) *NicConfig {
 	nicConfig := NewNicConfig()
 	for _, s := range n.Subnets {
 		for _, r := range reservations {
-			if !s.Cidr.Contains(r.IP.IP) {
+			if !r.Static() || !s.Cidr.Contains(r.IP.IP) {
 				continue
 			}
-			nicConfig.IP = append(nicConfig.IP, r.IP.String())
-			if s.Gateway != nil {
-				nicConfig.Gateway = append(nicConfig.Gateway, s.Gateway.String())
-			}
-			for _, dns := range s.DNS {
-				nicConfig.DNS = append(nicConfig.DNS, dns.String())
-			}
+			nicConfig.Append(*r.IP, s.DNS, &s.Gateway)
 		}
 	}
 	return nicConfig
