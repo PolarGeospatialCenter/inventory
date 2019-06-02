@@ -81,3 +81,26 @@ func TestLegacyNICInfoMapDynamoDBUnmarshal(t *testing.T) {
 		t.Errorf("not unmarshaled properly, got %v", ifaceMap)
 	}
 }
+
+func TestLegacyNICInfoMapDynamoDBUnmarshalEmptyMAC(t *testing.T) {
+	mac, _ := net.ParseMAC("00:01:02:03:04:05")
+	ni := &NICInfo{MAC: mac}
+	niMap := map[string]*NICInfo{"testnet": ni}
+	marshaledNicInfoMap, err := dynamodbattribute.Marshal(niMap)
+	if err != nil {
+		t.Errorf("error marshaling legacy nicinfo object: %v", err)
+	}
+
+	emptyMac, _ := dynamodbattribute.Marshal("")
+	marshaledNicInfoMap.M["testnet"].M["MAC"] = emptyMac
+
+	ifaceMap := NICInfoMap{}
+	err = dynamodbattribute.Unmarshal(marshaledNicInfoMap, &ifaceMap)
+	if err != nil {
+		t.Errorf("unable to unmarshal legacy nicinfo to network interface: %v", err)
+	}
+
+	if len(ifaceMap) == 0 || len(ifaceMap["testnet"].NICs) != 0 {
+		t.Errorf("not unmarshaled properly, got %v", ifaceMap)
+	}
+}

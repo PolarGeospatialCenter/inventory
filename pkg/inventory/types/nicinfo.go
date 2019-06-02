@@ -161,7 +161,9 @@ func (n *NetworkInterface) UnmarshalDynamoDBAttributeValue(av *dynamodb.Attribut
 
 	// check for NicInfo
 	if macAv, ok := av.M["MAC"]; ok {
-		av.M["NICs"] = &dynamodb.AttributeValue{L: []*dynamodb.AttributeValue{macAv}}
+		if (macAv.NULL == nil || !*macAv.NULL) && len(macAv.B) > 0 {
+			av.M["NICs"] = &dynamodb.AttributeValue{L: []*dynamodb.AttributeValue{macAv}}
+		}
 		delete(av.M, "MAC")
 	}
 
