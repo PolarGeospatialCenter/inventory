@@ -220,7 +220,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 		return lambdautils.ErrInternalServerError()
 	}
 
-	if existingReservation != nil {
+	if r.MAC.String() != "" && existingReservation != nil {
 		return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac address already exists in this subnet")
 	}
 
