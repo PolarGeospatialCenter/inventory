@@ -43,7 +43,7 @@ type IPReservationMap map[string]IPReservationList
 func (m IPReservationMap) GetIPReservationsByMac(mac net.HardwareAddr) (IPReservationList, error) {
 	reservations, ok := m[mac.String()]
 	if !ok {
-		return nil, fmt.Errorf("IPReservations not found matching mac: %s", mac.String())
+		return make(IPReservationList, 0), nil
 	}
 	return reservations, nil
 }
