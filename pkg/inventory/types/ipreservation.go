@@ -20,17 +20,18 @@ type IPReservation struct {
 	DNS             []net.IP         `json:"dns"`
 	Start           *time.Time       `json:"start"`
 	End             *time.Time       `json:"end"`
+	Metadata        Metadata         `json:"metadata"`
 }
 
 func NewStaticIPReservation() *IPReservation {
 	now := time.Now()
-	return &IPReservation{Start: &now}
+	return &IPReservation{Start: &now, Metadata: make(Metadata)}
 }
 
 func NewDynamicIPReservation(ttl time.Duration) *IPReservation {
 	now := time.Now()
 	end := now.Add(ttl)
-	return &IPReservation{Start: &now, End: &end}
+	return &IPReservation{Start: &now, End: &end, Metadata: make(Metadata)}
 }
 
 func (r *IPReservation) SetRandomIP() error {
@@ -165,6 +166,9 @@ func (r *IPReservation) UnmarshalJSON(data []byte) error {
 		if ip != nil {
 			r.DNS = append(r.DNS, ip)
 		}
+	}
+	if r.Metadata == nil {
+		r.Metadata = make(Metadata)
 	}
 	return err
 }

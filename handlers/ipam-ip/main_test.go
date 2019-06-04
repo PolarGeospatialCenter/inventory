@@ -156,9 +156,11 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 			Body: `
 			{
 				"mac": "02:03:04:05:06:07",
-				"name": "foo-host",
 				"subnet": "10.0.0.0",
-				"ttl": "1h"
+				"ttl": "1h",
+				"metadata": {
+					"hostname": "foo-host"
+				}
 			}`,
 		})
 		t.Log(response.Body)
@@ -187,6 +189,10 @@ func TestCreateReservationUnknownHost(t *testing.T) {
 
 		if reservation.End == nil {
 			t.Errorf("Got nil end time")
+		}
+
+		if hostname, ok := reservation.Metadata["hostname"]; !ok || hostname != "foo-host" {
+			t.Errorf("got wrong hostname back in metadata: '%v'", hostname)
 		}
 
 	})
@@ -241,6 +247,10 @@ func TestGetReservationKnownHost(t *testing.T) {
 
 		if r.End != nil {
 			t.Errorf("Got non-nil end time")
+		}
+
+		if r.Metadata == nil {
+			t.Errorf("Got nil metadata")
 		}
 	})
 }
