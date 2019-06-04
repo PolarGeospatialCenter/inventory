@@ -40,11 +40,47 @@ func (t *IPReservationTable) GetKeyAttributeDefinitions() []*dynamodb.AttributeD
 			AttributeName: aws.String("ip"),
 			AttributeType: aws.String("B"),
 		},
+		{
+			AttributeName: aws.String("MAC"),
+			AttributeType: aws.String("S"),
+		},
 	}
 }
 
-func (t *IPReservationTable) CreateTable() error {
-	return fmt.Errorf("not implemented")
+func (t *IPReservationTable) GetCreateTableInput() *dynamodb.CreateTableInput {
+	input := &dynamodb.CreateTableInput{
+		AttributeDefinitions: t.GetKeyAttributeDefinitions(),
+		KeySchema:            t.GetKeySchema(),
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(1),
+			WriteCapacityUnits: aws.Int64(1),
+		},
+		GlobalSecondaryIndexes: []*dynamodb.GlobalSecondaryIndex{
+			&dynamodb.GlobalSecondaryIndex{
+				IndexName: aws.String("mac"),
+				ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+					ReadCapacityUnits:  aws.Int64(1),
+					WriteCapacityUnits: aws.Int64(1),
+				},
+				KeySchema: []*dynamodb.KeySchemaElement{
+					{
+						AttributeName: aws.String("MAC"),
+						KeyType:       aws.String("HASH"),
+					},
+					{
+						AttributeName: aws.String("net"),
+						KeyType:       aws.String("RANGE"),
+					},
+				},
+				Projection: &dynamodb.Projection{
+					ProjectionType: aws.String("ALL"),
+				},
+			},
+		},
+		TableName: aws.String(t.GetName()),
+	}
+
+	return input
 }
 
 func (t *IPReservationTable) GetKeyFrom(o interface{}) (map[string]*dynamodb.AttributeValue, error) {

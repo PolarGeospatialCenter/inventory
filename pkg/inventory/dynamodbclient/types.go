@@ -9,6 +9,7 @@ import (
 // DynamoDBStoreTable defines an interface for describing a dynamodb table
 type DynamoDBStoreTable interface {
 	GetName() string
+	GetCreateTableInput() *dynamodb.CreateTableInput
 	GetKeySchema() []*dynamodb.KeySchemaElement
 	GetPartitionKeyName() string
 	GetKeyAttributeDefinitions() []*dynamodb.AttributeDefinition

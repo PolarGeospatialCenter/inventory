@@ -311,11 +311,25 @@ Resources:
   IpamIPTable:
     Type: "AWS::DynamoDB::Table"
     Properties:
+      GlobalSecondaryIndexes:
+        - IndexName: mac
+          KeySchema:
+            - AttributeName: MAC
+              KeyType: HASH
+            - AttributeName: net
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1            
       AttributeDefinitions:
         - AttributeName: net
           AttributeType: B
         - AttributeName: ip
           AttributeType: B
+        - AttributeName: MAC
+          AttributeType: S
       KeySchema:
         - AttributeName: net
           KeyType: HASH
