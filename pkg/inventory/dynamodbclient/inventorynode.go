@@ -27,9 +27,19 @@ func (db *InventoryNodeStore) GetInventoryNodes() (map[string]*types.InventoryNo
 		return nil, fmt.Errorf("unable to lookup systems: %v", err)
 	}
 
+	ipResrvations, err := db.IPReservation().GetAllIPReservations()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get all ip reservations: %v", err)
+	}
+
+	ipReservationMap := make(types.IPReservationMap, len(ipResrvations))
+	for _, r := range ipResrvations {
+		ipReservationMap.Add(r)
+	}
+
 	out := make(map[string]*types.InventoryNode)
 	for _, n := range nodes {
-		iNode, err := types.NewInventoryNode(n, types.NetworkMap(networks), types.SystemMap(systems), db.IPReservation())
+		iNode, err := types.NewInventoryNode(n, types.NetworkMap(networks), types.SystemMap(systems), ipReservationMap)
 		if err != nil {
 			return nil, fmt.Errorf("unable to compile inventory node: %v", err)
 		}

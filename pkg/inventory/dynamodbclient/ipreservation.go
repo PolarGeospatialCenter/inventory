@@ -26,6 +26,15 @@ func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReser
 	return r, err
 }
 
+func (db *IPReservationStore) GetAllIPReservations() (types.IPReservationList, error) {
+	reservations := make(types.IPReservationList, 0)
+	err := db.getAll(&reservations)
+	if err != nil {
+		return nil, fmt.Errorf("error getting all ip reservations: %v", err)
+	}
+	return reservations, nil
+}
+
 func (db *IPReservationStore) GetIPReservationsByMac(mac net.HardwareAddr) (types.IPReservationList, error) {
 	if len(mac) == 0 {
 		return types.IPReservationList{}, nil

@@ -48,6 +48,14 @@ func (m IPReservationMap) GetIPReservationsByMac(mac net.HardwareAddr) (IPReserv
 	return reservations, nil
 }
 
+func (m IPReservationMap) Add(reservation *IPReservation) {
+	if _, ok := m[reservation.MAC.String()]; !ok {
+		m[reservation.MAC.String()] = make(IPReservationList, 0)
+	}
+
+	m[reservation.MAC.String()] = append(m[reservation.MAC.String()], reservation)
+}
+
 type InventoryNode struct {
 	Hostname        string
 	LocationString  string
