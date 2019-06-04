@@ -27,6 +27,10 @@ func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReser
 }
 
 func (db *IPReservationStore) GetIPReservationsByMac(mac net.HardwareAddr) (types.IPReservationList, error) {
+	if len(mac) == 0 {
+		return types.IPReservationList{}, nil
+	}
+
 	table := db.tableMap.LookupTable(&types.IPReservation{})
 	if table == nil {
 		return nil, ErrInvalidObjectType
@@ -101,6 +105,10 @@ func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) (types.IPReser
 }
 
 func (db *IPReservationStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
+	if len(mac) == 0 {
+		return nil, nil
+	}
+
 	table := db.tableMap.LookupTable(&types.IPReservation{})
 	if table == nil {
 		return nil, ErrInvalidObjectType

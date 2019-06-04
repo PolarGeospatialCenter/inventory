@@ -106,4 +106,13 @@ func TestGetIPReservationInSubnetByMAC(t *testing.T) {
 		t.Errorf("wrong number of reservations returned")
 	}
 
+	reservations, err = inv.IPReservation().GetIPReservationsByMac(net.HardwareAddr{})
+	if err != nil {
+		t.Errorf("error getting reservation for empty mac: %v", err)
+	}
+
+	if len(reservations) != 0 {
+		t.Errorf("wrong number of reservations returned")
+	}
+
 }
