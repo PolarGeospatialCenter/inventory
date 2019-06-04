@@ -104,7 +104,7 @@ func (db *NodeStore) reconcileIPs(node *types.Node) error {
 			existingReservations := types.IPReservationList{}
 			for _, mac := range iface.NICs {
 				reservation, err := db.IPReservation().GetExistingIPReservationInSubnet(subnet.Cidr, mac)
-				if err != nil {
+				if err != nil && err != ErrObjectNotFound {
 					return fmt.Errorf("unable to get reservation for nic: %v", err)
 				}
 				if reservation != nil {
