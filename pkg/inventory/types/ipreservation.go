@@ -156,8 +156,13 @@ func (r *IPReservation) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	mac, err := net.ParseMAC(v.MAC)
-	r.MAC = mac
+	if v.MAC != "" {
+		mac, err := net.ParseMAC(v.MAC)
+		if err != nil {
+			return err
+		}
+		r.MAC = mac
+	}
 
 	r.Gateway = net.ParseIP(v.Gateway)
 

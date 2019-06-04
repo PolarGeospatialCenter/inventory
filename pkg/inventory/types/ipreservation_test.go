@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -54,5 +55,33 @@ func TestIPReservationValidAt(t *testing.T) {
 				st.Errorf("Expected ValidAt to return %v, actually returned %v", c.valid, valid)
 			}
 		})
+	}
+}
+
+func TestUnmarshalIPReservationJSON(t *testing.T) {
+	jsonString := `{
+		"HostInformation": "",
+		"start": "2019-06-03T19:27:02Z",
+		"end": null,
+		"metadata": {
+			"note": "metadata field",
+			"number": 5,
+			"bool": true,
+			"null": null
+		},
+		"ip": "10.0.0.1/27",
+		"mac": "",
+		"gateway": "10.0.0.30",
+		"dns": [
+			"1.1.1.1",
+			"8.8.8.8"
+		]
+	}`
+
+	reservation := &IPReservation{}
+
+	err := json.Unmarshal([]byte(jsonString), reservation)
+	if err != nil {
+		t.Errorf("failed to unmarshal ip reservation: %v", err)
 	}
 }
