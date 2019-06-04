@@ -7,10 +7,10 @@ import (
 )
 
 type IpamIpRequest struct {
-	Name      string `json:"name"`
-	Subnet    string `json:"subnet"`
-	HwAddress string `json:"mac"`
-	TTL       string `json:"ttl"`
+	Subnet    string   `json:"subnet"`
+	HwAddress string   `json:"mac"`
+	TTL       string   `json:"ttl"`
+	Metadata  Metadata `json:"metadata"`
 }
 
 func (req *IpamIpRequest) Reservation(ip net.IP) (*IPReservation, error) {
@@ -42,6 +42,11 @@ func (req *IpamIpRequest) Reservation(ip net.IP) (*IPReservation, error) {
 
 	if req.Subnet != "" && ip == nil && r.MAC == nil && r.End == nil {
 		return nil, fmt.Errorf("all dynamic reservations must include a MAC address or a TTL")
+	}
+
+	r.Metadata = make(Metadata, len(req.Metadata))
+	for k, v := range req.Metadata {
+		r.Metadata[k] = v
 	}
 
 	return r, nil
