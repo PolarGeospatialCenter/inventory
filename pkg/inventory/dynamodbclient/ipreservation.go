@@ -58,10 +58,6 @@ func (db *IPReservationStore) GetIPReservationsByMac(mac net.HardwareAddr) (type
 		return nil, err
 	}
 
-	if len(results.Items) == 0 {
-		return nil, ErrObjectNotFound
-	}
-
 	reservations := types.IPReservationList{}
 	err = dynamodbattribute.UnmarshalListOfMaps(results.Items, &reservations)
 	return reservations, err
