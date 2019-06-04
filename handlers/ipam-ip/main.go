@@ -215,13 +215,11 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 	}
 
 	existingReservation, err := inv.IPReservation().GetExistingIPReservationInSubnet(subnet.Cidr, r.MAC)
-	if err != nil {
+	if err != nil && err != dynamodbclient.ErrObjectNotFound {
 		log.Printf("unexpected error getting existing reservation for %s: %v", r.MAC, err)
 		return lambdautils.ErrInternalServerError()
-	}
-
-	if r.MAC.String() != "" && existingReservation != nil {
-		return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac address already exists in this subnet")
+	} else if err == nil && existingReservation != nil {
+		return lambdautils.ErrStringResponse(http.StatusConflict, "a reservation for this mac already exists in this subnet")
 	}
 
 	r.IP = subnet.Cidr
