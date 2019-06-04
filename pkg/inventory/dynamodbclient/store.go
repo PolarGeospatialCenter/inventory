@@ -45,15 +45,7 @@ func (db *DynamoDBStore) InitializeTables() error {
 }
 
 func (db *DynamoDBStore) createTable(table DynamoDBStoreTable) error {
-	input := &dynamodb.CreateTableInput{
-		AttributeDefinitions: table.GetKeyAttributeDefinitions(),
-		KeySchema:            table.GetKeySchema(),
-		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-			ReadCapacityUnits:  aws.Int64(1),
-			WriteCapacityUnits: aws.Int64(1),
-		},
-		TableName: aws.String(table.GetName()),
-	}
+	input := table.GetCreateTableInput()
 
 	_, err := db.db.CreateTable(input)
 	return err

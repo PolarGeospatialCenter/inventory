@@ -81,3 +81,17 @@ func (t *SimpleDynamoDBInventoryTable) GetItemQueryInputFrom(o interface{}) (*dy
 	}
 	return q, nil
 }
+
+func (t *SimpleDynamoDBInventoryTable) GetCreateTableInput() *dynamodb.CreateTableInput {
+	input := &dynamodb.CreateTableInput{
+		AttributeDefinitions: t.GetKeyAttributeDefinitions(),
+		KeySchema:            t.GetKeySchema(),
+		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+			ReadCapacityUnits:  aws.Int64(1),
+			WriteCapacityUnits: aws.Int64(1),
+		},
+		TableName: aws.String(t.GetName()),
+	}
+
+	return input
+}

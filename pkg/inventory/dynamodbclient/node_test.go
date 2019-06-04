@@ -26,7 +26,7 @@ func TestNodeCreate(t *testing.T) {
 
 	err = inv.InitializeTables()
 	if err != nil {
-		t.Errorf("unable to initialize tables")
+		t.Errorf("unable to initialize tables: %v", err)
 	}
 
 	err = inv.Network().Create(&types.Network{Name: "testnet"})

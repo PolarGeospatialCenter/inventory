@@ -27,18 +27,40 @@ func (db *IPReservationStore) GetIPReservation(ipNet *net.IPNet) (*types.IPReser
 }
 
 func (db *IPReservationStore) GetIPReservationsByMac(mac net.HardwareAddr) (types.IPReservationList, error) {
-	allReservations := make(types.IPReservationList, 0)
-	err := db.getAll(&allReservations)
+	table := db.tableMap.LookupTable(&types.IPReservation{})
+	if table == nil {
+		return nil, ErrInvalidObjectType
+	}
+
+	macValue, err := dynamodbattribute.Marshal(mac.String())
 	if err != nil {
 		return nil, err
 	}
-	result := make(types.IPReservationList, 0)
-	for _, reservation := range allReservations {
-		if reservation.MAC.String() == mac.String() {
-			result = append(result, reservation)
-		}
+
+	queryValues := map[string]*dynamodb.AttributeValue{":partitionkeyval": macValue}
+
+	queryString := "MAC=:partitionkeyval"
+	q := &dynamodb.QueryInput{
+		TableName:                 aws.String(table.GetName()),
+		IndexName:                 aws.String("mac"),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
 	}
-	return result, nil
+
+	q.ScanIndexForward = aws.Bool(false)
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results.Items) == 0 {
+		return nil, ErrObjectNotFound
+	}
+
+	reservations := types.IPReservationList{}
+	err = dynamodbattribute.UnmarshalListOfMaps(results.Items, &reservations)
+	return reservations, err
 }
 
 // GetIPReservations returns all current reservations in the specified subnet
@@ -79,17 +101,49 @@ func (db *IPReservationStore) GetIPReservations(ipNet *net.IPNet) (types.IPReser
 }
 
 func (db *IPReservationStore) GetExistingIPReservationInSubnet(subnetCidr *net.IPNet, mac net.HardwareAddr) (*types.IPReservation, error) {
-	reservations, err := db.GetIPReservations(subnetCidr)
+	table := db.tableMap.LookupTable(&types.IPReservation{})
+	if table == nil {
+		return nil, ErrInvalidObjectType
+	}
+
+	macValue, err := dynamodbattribute.Marshal(mac.String())
 	if err != nil {
 		return nil, err
 	}
 
-	for _, r := range reservations {
-		if r.MAC.String() == mac.String() {
-			return r, nil
-		}
+	netValue, err := dynamodbattribute.Marshal(subnetCidr.IP.Mask(subnetCidr.Mask))
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+
+	queryValues := map[string]*dynamodb.AttributeValue{":rangekeyval": netValue, ":partitionkeyval": macValue}
+
+	queryString := "net=:rangekeyval and MAC=:partitionkeyval"
+	q := &dynamodb.QueryInput{
+		TableName:                 aws.String(table.GetName()),
+		IndexName:                 aws.String("mac"),
+		KeyConditionExpression:    aws.String(queryString),
+		ExpressionAttributeValues: queryValues,
+	}
+
+	q.ScanIndexForward = aws.Bool(false)
+
+	results, err := db.db.Query(q)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results.Items) == 0 {
+		return nil, ErrObjectNotFound
+	}
+
+	if len(results.Items) > 1 {
+		return nil, fmt.Errorf("unable to lookup exactly one item: found %d matching", len(results.Items))
+	}
+
+	reservation := &types.IPReservation{}
+	err = dynamodbattribute.UnmarshalMap(results.Items[0], reservation)
+	return reservation, err
 }
 
 func (db *IPReservationStore) CreateRandomIPReservation(r *types.IPReservation, subnet *types.Subnet) (*types.IPReservation, error) {
