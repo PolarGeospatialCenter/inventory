@@ -127,6 +127,9 @@ func (db *NodeStore) reconcileIPs(node *types.Node) error {
 			if len(existingDynamic) > 0 {
 				reservation := existingDynamic[0]
 				reservation.End = nil
+				reservation.Metadata["hostname"] = node.Hostname()
+				reservation.Metadata["nodeid"] = node.ID()
+				reservation.Metadata["domain"] = network.Domain
 				err = db.IPReservation().UpdateIPReservation(reservation)
 				if err != nil {
 					return fmt.Errorf("unable to upgrade dynamic reservation: %v", err)
@@ -138,6 +141,9 @@ func (db *NodeStore) reconcileIPs(node *types.Node) error {
 			// allocate an IP and create a reservation
 			newReservation := types.NewStaticIPReservation()
 			newReservation.MAC = iface.NICs[0]
+			newReservation.Metadata["hostname"] = node.Hostname()
+			newReservation.Metadata["nodeid"] = node.ID()
+			newReservation.Metadata["domain"] = network.Domain
 			_, err := db.IPReservation().CreateRandomIPReservation(newReservation, subnet)
 			if err != nil {
 				return err
