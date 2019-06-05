@@ -270,9 +270,9 @@ func (r *IPReservation) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeVa
 
 	if v, ok := av.M["Metadata"]; ok && v.NULL == nil {
 		metadata := make(Metadata)
-		err := dynamodbattribute.Unmarshal(v, metadata)
+		err := dynamodbattribute.Unmarshal(v, &metadata)
 		if err != nil {
-			return fmt.Errorf("unable to unmarshal end time: %v", err)
+			return fmt.Errorf("unable to unmarshal metadata: %v", err)
 		}
 		r.Metadata = metadata
 	} else {
