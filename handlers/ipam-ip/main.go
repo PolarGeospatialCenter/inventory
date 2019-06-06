@@ -238,6 +238,7 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 	} else if subnet.DynamicAllocationEnabled() {
 		r, err = inv.IPReservation().CreateRandomIPReservation(r, subnet)
 		if err != nil {
+			log.Printf("error creating random reservation for %v in %v: %v", r, subnet, err)
 			return lambdautils.ErrInternalServerError()
 		}
 	} else {
