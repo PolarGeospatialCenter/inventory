@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/PolarGeospatialCenter/inventory/pkg/api/server"
 	inventorytypes "github.com/PolarGeospatialCenter/inventory/pkg/inventory/types"
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
 )
 
 // GetHandler handles GET method requests from the API gateway
@@ -65,6 +69,8 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
+	sendUpdateEvent(ctx)
+
 	return server.UpdateObject(inv.Node(), updatedNode, nodeId)
 }
 
@@ -84,6 +90,8 @@ func PostHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*e
 
 	inv := server.ConnectToInventoryFromContext(ctx)
 
+	sendUpdateEvent(ctx)
+
 	return server.CreateObject(inv.Node(), newNode)
 }
 
@@ -96,8 +104,43 @@ func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (
 	node := &inventorytypes.Node{InventoryID: nodeId}
 
 	inv := server.ConnectToInventoryFromContext(ctx)
+	sendUpdateEvent(ctx)
 
 	return server.DeleteObject(inv.Node(), node)
+}
+
+func sendUpdateEvent(ctx context.Context) {
+	snsClient := server.ConnectToSNSFromContext(ctx)
+	var topicArn string
+	err := snsClient.ListTopicsPages(&sns.ListTopicsInput{}, func(out *sns.ListTopicsOutput, last bool) bool {
+		for _, topic := range out.Topics {
+			if topic.TopicArn == nil {
+				continue
+			}
+			arnString := *topic.TopicArn
+			if strings.HasSuffix(arnString, ":inventory_node_events") {
+				topicArn = arnString
+				return false
+			}
+		}
+		return !last
+	})
+	if err != nil {
+		log.Printf("unable to list sns topics: %v", err)
+	}
+
+	if topicArn == "" {
+		log.Printf("no SNS topic found")
+		return
+	}
+
+	_, err = snsClient.Publish(&sns.PublishInput{
+		Message:  aws.String("{}"),
+		TopicArn: aws.String(topicArn),
+	})
+	if err != nil {
+		log.Printf("unable to publish update to SNS queue '%s': %v", topicArn, err)
+	}
 }
 
 // Handler handles requests for nodes

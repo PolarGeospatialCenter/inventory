@@ -6,6 +6,7 @@ Resources:
   SystemDataApi:
     Type: 'AWS::Serverless::Api'
     Properties:
+      Name: "inventory-api"
       StageName: "v0"
       DefinitionBody:
         swagger: "2.0"
@@ -342,6 +343,11 @@ Resources:
       Tags:
         - Key: application
           Value: inventory
+  NodeEvents:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: "SNS topic for inventory node create/update/delete events"
+      TopicName: inventory_node_events
   HealthCheck:
     Type: AWS::Serverless::Function
     Properties:
@@ -362,7 +368,9 @@ Resources:
       Handler: node
       CodeUri: bin/
       Runtime: go1.x
-      Policies: AmazonDynamoDBFullAccess
+      Policies: 
+        - AmazonDynamoDBFullAccess
+        - AmazonSNSFullAccess
       Events:
         GetNodeEvent:
           Type: Api

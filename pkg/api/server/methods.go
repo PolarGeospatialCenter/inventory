@@ -10,6 +10,7 @@ import (
 	"github.com/PolarGeospatialCenter/inventory/pkg/lambdautils"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/sns"
 )
 
 // InventoryDatabase defines the interface we're expecting for the inventory
@@ -30,6 +31,11 @@ type InventoryObject interface {
 func ConnectToInventoryFromContext(ctx context.Context) *dynamodbclient.DynamoDBStore {
 	db := dynamodb.New(lambdautils.AwsContextConfigProvider(ctx))
 	return dynamodbclient.NewDynamoDBStore(db, nil)
+}
+
+// ConnectToSNSFromContext creates a dynamodb inventory client from credentials attached to the context
+func ConnectToSNSFromContext(ctx context.Context) *sns.SNS {
+	return sns.New(lambdautils.AwsContextConfigProvider(ctx))
 }
 
 // UpdateObject updates an object
