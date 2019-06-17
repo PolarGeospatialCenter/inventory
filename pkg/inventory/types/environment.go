@@ -11,7 +11,7 @@ var ErrLogicalNetworkNotFound = errors.New("Network Not Found")
 type Environment struct {
 	IPXEUrl  string
 	Networks map[string]string
-	Metadata map[string]interface{} `json:",omitempty"`
+	Metadata Metadata `json:",omitempty"`
 }
 
 // LookupLogicalNetworkName finds the logical network name associated with the
