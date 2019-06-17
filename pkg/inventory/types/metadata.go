@@ -18,3 +18,12 @@ func (m *Metadata) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) 
 	}
 	return nil
 }
+
+// GetString attempts to get a string value with the provided key.
+func (m Metadata) GetString(key string) (string, bool) {
+	if iVal, ok := m[key]; ok {
+		val, sok := iVal.(string)
+		return val, sok
+	}
+	return "", false
+}
