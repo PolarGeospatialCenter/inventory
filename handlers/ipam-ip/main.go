@@ -144,11 +144,6 @@ func PutHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*ev
 // DeleteHandler handles POST method requests from the API gateway
 func DeleteHandler(ctx context.Context, request events.APIGatewayProxyRequest) (*events.APIGatewayProxyResponse, error) {
 	ipReservation := &types.IPReservation{}
-	err := json.Unmarshal([]byte(request.Body), ipReservation)
-	if err != nil {
-		log.Printf("Unable to parse request: %v", err)
-		return lambdautils.ErrBadRequest("Unable to parse request")
-	}
 
 	ipAddress := request.PathParameters["ipAddress"]
 	ip := net.ParseIP(ipAddress)

@@ -218,6 +218,25 @@ func TestCreateReservationKnownHost(t *testing.T) {
 	})
 }
 
+func TestDeleteReservationKnownHost(t *testing.T) {
+	runTest(t, func(handlerCtx context.Context, t *testing.T) {
+		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Sound return a conflict.
+		response, err := Handler(handlerCtx, events.APIGatewayProxyRequest{
+			HTTPMethod: http.MethodDelete,
+			Body:       ``,
+			PathParameters: map[string]string{
+				"ipAddress": "10.0.0.7",
+			},
+		})
+		if err != nil {
+			t.Fatalf("Unexpected error deleting reservation for known host: %v", err)
+		}
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("Expected ok status, got: %d", response.StatusCode)
+		}
+	})
+}
+
 func TestGetReservationKnownHost(t *testing.T) {
 	runTest(t, func(handlerCtx context.Context, t *testing.T) {
 		// Post to ip endpoint with MAC, network/subnet and hostname, no IP.  Sound return a conflict.
